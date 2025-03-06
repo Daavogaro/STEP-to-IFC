@@ -1,30 +1,22 @@
 # Function to get only leaf objects (objects without children)
 def get_leaf_objects(obj, hierarchy):
-    """Recursively get only objects without children."""
-    # If the object has no children, it is a leaf
+    # If the object has no children, it is considered a leaf node
     if not obj.children:
-        return [hierarchy + [obj.name]]
+        return [hierarchy + [obj.name]]  # Return the hierarchy path ending with the leaf object
     
-    # Otherwise, continue checking children
+    # If the object has children, continue traversing
     rows = []
     for child in obj.children:
+        # Recursively call the function for each child and extend the results
         rows.extend(get_leaf_objects(child, hierarchy + [obj.name]))
-    return rows
+    return rows  # Return the accumulated list of leaf objects with their hierarchy
 
-# Function to get the collection tree with only leaf objects
-def get_collection_tree(obj, hierarchy):
-    """Recursively get only the leaf objects in a collection."""
+# Function to get the object tree with only leaf objects
+def get_object_tree(obj, hierarchy): 
     rows = []
-    # For each top-level object, get leaf objects
+    # Get all leaf objects under the current object
     rows.extend(get_leaf_objects(obj, hierarchy))
-    
-    # For each child collection, recurse
+    # If the object has children (which are likely objects), continue the recursion
     for child in obj.children:
-        rows.extend(get_collection_tree(child, hierarchy + [obj.name]))
-
-    return rows
-
-
-
-
-
+        rows.extend(get_object_tree(child, hierarchy + [obj.name]))
+    return rows  # Return the complete hierarchical tree containing only leaf objects

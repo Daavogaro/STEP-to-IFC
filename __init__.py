@@ -21,6 +21,6 @@ def unregister():
 if __name__ == "__main__":
     register()
 
-# Some links that could be usefull:
+# Some links that could be useful:
 # - icons: https://wilkinson.graphics/blender-icons/
 # - blender API documentation: https://docs.blender.org/api/current/index.html
