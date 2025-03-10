@@ -16,7 +16,4 @@ def get_object_tree(obj, hierarchy):
     rows = []
     # Get all leaf objects under the current object
     rows.extend(get_leaf_objects(obj, hierarchy))
-    # If the object has children (which are likely objects), continue the recursion
-    for child in obj.children:
-        rows.extend(get_object_tree(child, hierarchy + [obj.name]))
     return rows  # Return the complete hierarchical tree containing only leaf objects

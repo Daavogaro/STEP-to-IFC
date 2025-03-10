@@ -24,3 +24,8 @@ if __name__ == "__main__":
 # Some links that could be useful:
 # - icons: https://wilkinson.graphics/blender-icons/
 # - blender API documentation: https://docs.blender.org/api/current/index.html
+
+
+# COSE DA FARE:
+# - Metti gli errori degli utenti non come print ma come self.report({'ERROR', "..."})
+# - Controllare che tutti gli script siano riferiti all'oggetto attivo e non a gli oggetti di scena, se no si fa un casino

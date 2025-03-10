@@ -50,7 +50,32 @@ class CustomPanel_CSVPrint(bpy.types.Panel):
         else:
             layout.label(text="No object selected")
 
-              
+# Panel with Import & Process buttons
+class RESOURCE_PT_panel(bpy.types.Panel):
+    bl_label = "Simplify geometries and tree"
+    bl_idname = "RESOURCE_PT_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "PLM-to-IFC"
+
+    def draw(self, context):
+        layout = self.layout
+        # Row for importing the CSV
+        row1 = layout.row(align=True)
+        row1.label(text="Import CSV")
+        row1.operator("csv.import", text="", icon="FILEBROWSER")
+        # Row for deleting objects based on the imported CSV
+        row2 = layout.row(align=True)
+        row2.label(text="Delete objects")
+        row2.operator("csv.delete", text="", icon="TRASH")
+        # Row for simplify objects based on the imported CSV
+        row3 = layout.row(align=True)
+        row3.label(text="Simplify geometries")
+        row3.operator("csv.simplify", text="", icon="MESH_CUBE")
+        # Row for regrouping objects based on the imported CSV
+        row4 = layout.row(align=True)
+        row4.label(text="Group elements")
+        row4.operator("csv.regroup", text="", icon="OUTLINER")             
 
 
 # This function is to register classes in Blender. We make Blender know that this class esist and it's necessary to show them
@@ -60,11 +85,13 @@ def register():
  
     bpy.utils.register_class(CustomPanel_DeleteSmallElements)
     bpy.utils.register_class(CustomPanel_CSVPrint)
+    bpy.utils.register_class(RESOURCE_PT_panel)
 
 # This funciton is the contrary of the register functon. Is to tell Blender to close the classes that we have registered when we close the menu
 def unregister():
     bpy.utils.unregister_class(CustomPanel_DeleteSmallElements)
     bpy.utils.unregister_class(CustomPanel_CSVPrint)
+    bpy.utils.unregister_class(RESOURCE_PT_panel)
     del bpy.types.Object.my_properties
     bpy.utils.unregister_class(MyProperties)
 
