@@ -9,6 +9,8 @@ class MyProperties(bpy.types.PropertyGroup):
         max=0.5
     )
 
+
+
 class CustomPanel_DeleteSmallElements(bpy.types.Panel):
     bl_label = "Delete Small Objects" # Title of the panel
     bl_idname = "Custom_panel_DeleteSmallElements" # ID of the panel
@@ -33,6 +35,27 @@ class CustomPanel_DeleteSmallElements(bpy.types.Panel):
             layout.label(text="No object selected")
 
 # For reading rapidity sake, comments from now won't repeat the same thing said before
+
+class CustomPanel_MakeMeshesUnique(bpy.types.Panel):
+    bl_label = "Make meshes uniques" 
+    bl_idname = "CustomPanel_MakeMeshesUnique"
+    bl_space_type = 'VIEW_3D' 
+    bl_region_type = 'UI' 
+    bl_category = "PLM-to-IFC"
+    def draw(self, context): 
+        layout = self.layout 
+        obj = context.object 
+
+        if obj:
+            # If an object is selected then the layout is shown
+            # Create a row for the float
+            row2 = layout.row(align=True)
+            row2.label(text="Make meshes uniques")
+            row2.operator("meshesunique.run_script", text="", icon="MESH_DATA") # The operator has the bl_idname "object.run_script" and you can find it in the operators file
+        else:
+            # If an object is not selected then the layout is not shown, but only a label 
+            layout.label(text="No object selected")
+
 
 class CustomPanel_CSVPrint(bpy.types.Panel):
     bl_label = "Print CSV of the components"
@@ -82,13 +105,15 @@ class RESOURCE_PT_panel(bpy.types.Panel):
 def register():
     bpy.utils.register_class(MyProperties)
     bpy.types.Object.my_properties = bpy.props.PointerProperty(type=MyProperties)
- 
+    
+    bpy.utils.register_class(CustomPanel_MakeMeshesUnique)
     bpy.utils.register_class(CustomPanel_DeleteSmallElements)
     bpy.utils.register_class(CustomPanel_CSVPrint)
     bpy.utils.register_class(RESOURCE_PT_panel)
 
 # This funciton is the contrary of the register functon. Is to tell Blender to close the classes that we have registered when we close the menu
 def unregister():
+    bpy.utils.unregister_class(CustomPanel_MakeMeshesUnique)
     bpy.utils.unregister_class(CustomPanel_DeleteSmallElements)
     bpy.utils.unregister_class(CustomPanel_CSVPrint)
     bpy.utils.unregister_class(RESOURCE_PT_panel)

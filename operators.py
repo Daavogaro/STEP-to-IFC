@@ -4,6 +4,7 @@ import csv
 from .core import deleteSmallElements
 from .core import exportCSVComponentsTree
 from .core import importCSV
+from .core import renameMeshes
 
 
 class DeleteSmallElements_RunScript(bpy.types.Operator):
@@ -36,11 +37,29 @@ class DeleteSmallElements_RunScript(bpy.types.Operator):
             self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
         self.report({'INFO'},"Small objects has been deleted!")
         return {'FINISHED'}
-        
+    
+class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
+    bl_idname = "meshesunique.run_script"
+    bl_label = "Make meshes data uniques"
+    bl_description = "Some of the meshes' data could be duplicated. This could cause some issues with identification with excel file. For this reason is reccomanded to make meshes data unique with this command."        
+    def execute(self, context):
+        if bpy.context.view_layer.objects.active:
+            active_obj = bpy.context.view_layer.objects.active
+            try:
+                renameMeshes.makeMeshesUniques(active_obj)
+            except Exception as e:
+                self.report({'ERROR'}, f"Failed to save CSV: {e}")
+                return {'CANCELLED'} # Cancel operation if there is an error
+            self.report({'INFO'},"The CSV has been printed!") 
+        else:
+            self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
+        self.report({'INFO'},"Meshes data made unique!")
+        return {'FINISHED'}
+
 
 class CSVPrint_Runscript(bpy.types.Operator):
     bl_idname = "csv.download"
-    bl_label = "Download Resource"
+    bl_label = "Download CSV"
     bl_description = "Save a CSV file in a chosen directory"
     filepath: bpy.props.StringProperty(subtype="DIR_PATH")  # Property for selecting a directory where the CSV will be saved
 
@@ -209,6 +228,7 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
         return {'FINISHED'}
 
 def register():
+    bpy.utils.register_class(MakeMeshesDataUniques_Runscript)
     bpy.utils.register_class(DeleteSmallElements_RunScript)
     bpy.utils.register_class(CSVPrint_Runscript)
     bpy.utils.register_class(CSVImport_Runscript)
@@ -217,6 +237,7 @@ def register():
     bpy.utils.register_class(regroupCSVObject_RunScript)
 
 def unregister():
+    bpy.utils.unregister_class(MakeMeshesDataUniques_Runscript)
     bpy.utils.unregister_class(DeleteSmallElements_RunScript)
     bpy.utils.unregister_class(CSVPrint_Runscript)
     bpy.utils.unregister_class(CSVImport_Runscript)
