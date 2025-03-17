@@ -58,7 +58,7 @@ class CustomPanel_MakeMeshesUnique(bpy.types.Panel):
 
 
 class CustomPanel_CSVPrint(bpy.types.Panel):
-    bl_label = "Print CSV of the components"
+    bl_label = "CSV of the components"
     bl_idname = "Custom_panel_CSVPrint" 
     bl_space_type = 'VIEW_3D' 
     bl_region_type = 'UI' 
@@ -68,25 +68,22 @@ class CustomPanel_CSVPrint(bpy.types.Panel):
         obj = context.object
         if obj:
             row = layout.row(align=True)
-            row.label(text="Click to download")
-            row.operator("csv.download", text="", icon="IMPORT")  
+            row.label(text="Download and upload")
+            row.operator("csv.download", text="", icon="IMPORT")
+            row.operator("csv.import", text="", icon="EXPORT")  
         else:
             layout.label(text="No object selected")
 
 # Panel with Import & Process buttons
-class RESOURCE_PT_panel(bpy.types.Panel):
+class CustomPanel_TreeAndGeometrySemplification(bpy.types.Panel):
     bl_label = "Simplify geometries and tree"
-    bl_idname = "RESOURCE_PT_panel"
+    bl_idname = "CustomPanel_TreeAndGeometrySemplification"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "PLM-to-IFC"
 
     def draw(self, context):
         layout = self.layout
-        # Row for importing the CSV
-        row1 = layout.row(align=True)
-        row1.label(text="Import CSV")
-        row1.operator("csv.import", text="", icon="FILEBROWSER")
         # Row for deleting objects based on the imported CSV
         row2 = layout.row(align=True)
         row2.label(text="Delete objects")
@@ -101,6 +98,39 @@ class RESOURCE_PT_panel(bpy.types.Panel):
         row4.operator("csv.regroup", text="", icon="OUTLINER")             
 
 
+# Panel with Import & Process buttons
+class CustomPanel_CSVIFC(bpy.types.Panel):
+    bl_label = "CSV of the components for IFC"
+    bl_idname = "CustomPanel_CSVIFC"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "PLM-to-IFC"
+
+    def draw(self, context):
+        layout = self.layout
+        # Row for importing the CSV
+        row1 = layout.row(align=True)
+        row1.label(text="Download and load CSV template for IFC")
+        row1.operator("csv.exportifc", text="", icon="IMPORT")
+        row1.operator("csv.importifc", text="", icon="EXPORT")
+
+# Panel with Import & Process buttons
+class CustomPanel_IFCClassAssgignment(bpy.types.Panel):
+    bl_label = "Assign IFC classes and PSets"
+    bl_idname = "CustomPanel_IFCClassAssignment"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "PLM-to-IFC"
+
+    def draw(self, context):
+        layout = self.layout
+        # Row for importing the CSV
+        row1 = layout.row(align=True)
+        row1.label(text="Assign IFC classes and PSets")
+        row1.operator("ifc.assign", text="", icon="HOME")
+
+
+
 # This function is to register classes in Blender. We make Blender know that this class esist and it's necessary to show them
 def register():
     bpy.utils.register_class(MyProperties)
@@ -109,14 +139,18 @@ def register():
     bpy.utils.register_class(CustomPanel_MakeMeshesUnique)
     bpy.utils.register_class(CustomPanel_DeleteSmallElements)
     bpy.utils.register_class(CustomPanel_CSVPrint)
-    bpy.utils.register_class(RESOURCE_PT_panel)
+    bpy.utils.register_class(CustomPanel_TreeAndGeometrySemplification)
+    bpy.utils.register_class(CustomPanel_CSVIFC)
+    bpy.utils.register_class(CustomPanel_IFCClassAssgignment)
 
 # This funciton is the contrary of the register functon. Is to tell Blender to close the classes that we have registered when we close the menu
 def unregister():
     bpy.utils.unregister_class(CustomPanel_MakeMeshesUnique)
     bpy.utils.unregister_class(CustomPanel_DeleteSmallElements)
     bpy.utils.unregister_class(CustomPanel_CSVPrint)
-    bpy.utils.unregister_class(RESOURCE_PT_panel)
+    bpy.utils.unregister_class(CustomPanel_TreeAndGeometrySemplification)
+    bpy.utils.unregister_class(CustomPanel_CSVIFC)
+    bpy.utils.unregister_class(CustomPanel_IFCClassAssgignment)
     del bpy.types.Object.my_properties
     bpy.utils.unregister_class(MyProperties)
 

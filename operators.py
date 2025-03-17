@@ -5,6 +5,7 @@ from .core import deleteSmallElements
 from .core import exportCSVComponentsTree
 from .core import importCSV
 from .core import renameMeshes
+from .core import ifcTreeAssembly
 
 
 class DeleteSmallElements_RunScript(bpy.types.Operator):
@@ -227,6 +228,112 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
         self.report({'INFO'}, "Regrouped elements based on CSV")
         return {'FINISHED'}
 
+class CSVPrintIFC_Runscript(bpy.types.Operator):
+    bl_idname = "csv.exportifc"
+    bl_label = "Download CSV"
+    bl_description = "Save a CSV file in a chosen directory"
+    filepath: bpy.props.StringProperty(subtype="DIR_PATH")  # Property for selecting a directory where the CSV will be saved
+
+    def execute(self, context):
+        if bpy.context.view_layer.objects.active:
+            active_obj = bpy.context.view_layer.objects.active
+            # Define the filename and path for the CSV file
+            csv_filename = os.path.join(self.filepath, "componentsTreeIFC.csv")
+            # Initialize the CSV data with a header row
+            tree_data = [["Level_" + str(i) for i in range(20)]+["Ifc Class","Predefined Type","Pset_Name/Prop_Name/Prop_Value_1","Pset_Name/Prop_Name/Prop_Value_2"]]
+            # Retrieve the hierarchical tree structure of objects in the scene
+            tree_data.extend(exportCSVComponentsTree.get_object_tree(active_obj, []))   
+            # Try to write the CSV file
+            try:
+                with open(csv_filename, 'w', newline='') as file:
+                    writer = csv.writer(file) # Write the file
+                    writer.writerows(tree_data) # Write the rows based on tree_data
+                # Report success message in Blender
+                self.report({'INFO'}, f"CSV saved to {csv_filename}")
+            # Handle potential errors
+            except Exception as e: 
+                self.report({'ERROR'}, f"Failed to save CSV: {e}")
+                return {'CANCELLED'} # Cancel operation if there is an error
+            self.report({'INFO'},"The CSV has been printed!")   
+            return {'FINISHED'} # Successfully completed operation
+        else:
+            self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
+
+        # Check if the file path is set
+        if not self.filepath:
+            self.report({'ERROR'}, "No folder selected")
+            return {'CANCELLED'} # Cancel operation
+        
+    # This method open the file browser and make the user select a directory
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self) # Open file browser for directory selection
+        return {'RUNNING_MODAL'} # Keep the operator running until user selects a folder
+
+
+# Global variable to store CSV file path
+csv_ifc_filepath = ""
+
+class IFCCSVLoad_Runscript(bpy.types.Operator):
+    bl_idname = "csv.importifc"
+    bl_label = "Import CSV"
+    bl_description = "Select a CSV to import"
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")  # File selection
+
+    def execute(self, context):
+        global csv_ifc_filepath  # Access global variable
+        if not self.filepath:
+            self.report({'ERROR'}, "No file selected")
+            return {'CANCELLED'}
+        # Ensure file is a CSV
+        if not self.filepath.lower().endswith('.csv'):
+            self.report({'ERROR'}, "Selected file is not a CSV")
+            return {'CANCELLED'}
+        csv_ifc_filepath= self.filepath 
+        try:
+            with open(csv_ifc_filepath, 'r', newline='') as file:
+                reader = csv.reader(file)
+                data = list(reader)
+            if not data:
+                self.report({'WARNING'}, "CSV file is empty")
+                return {'CANCELLED'}
+            self.report({'INFO'}, f"Imported {len(data)} rows from CSV")
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to read CSV: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+class IFCAssign_Runscript(bpy.types.Operator):
+    bl_idname = "ifc.assign"
+    bl_label = "Assign IFC classes"
+    bl_description = "Assign IFC classes, predefined type and Property Sets based on the CSV"
+
+    def execute(self, context):
+        global csv_ifc_filepath
+        if not csv_ifc_filepath:
+            self.report({'ERROR'}, "No CSV file imported yet")
+            return {'CANCELLED'}
+        
+        try:
+            with open(csv_ifc_filepath, 'r', newline='') as file:
+                reader = csv.reader(file)
+                data = list(reader)
+            active_obj = bpy.context.view_layer.objects.active
+            ifcTreeAssembly.createIfcAssemblyTree(self,active_obj,csv_ifc_filepath)
+            objects_to_delete = []
+            ifcTreeAssembly.appendHierarchy(self,active_obj,objects_to_delete)
+            ifcTreeAssembly.deleteArray(self,objects_to_delete)
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Error in assigning IFC: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
 def register():
     bpy.utils.register_class(MakeMeshesDataUniques_Runscript)
     bpy.utils.register_class(DeleteSmallElements_RunScript)
@@ -235,6 +342,9 @@ def register():
     bpy.utils.register_class(deleteCSVObject_RunScript)
     bpy.utils.register_class(simplifyCSVObject_RunScript)
     bpy.utils.register_class(regroupCSVObject_RunScript)
+    bpy.utils.register_class(CSVPrintIFC_Runscript)
+    bpy.utils.register_class(IFCCSVLoad_Runscript)
+    bpy.utils.register_class(IFCAssign_Runscript)
 
 def unregister():
     bpy.utils.unregister_class(MakeMeshesDataUniques_Runscript)
@@ -244,3 +354,6 @@ def unregister():
     bpy.utils.unregister_class(deleteCSVObject_RunScript)
     bpy.utils.unregister_class(simplifyCSVObject_RunScript)
     bpy.utils.unregister_class(regroupCSVObject_RunScript)
+    bpy.utils.unregister_class(CSVPrintIFC_Runscript)
+    bpy.utils.unregister_class(IFCCSVLoad_Runscript)
+    bpy.utils.unregister_class(IFCAssign_Runscript)
