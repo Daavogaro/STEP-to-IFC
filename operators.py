@@ -339,10 +339,12 @@ class IFCAssign_Runscript(bpy.types.Operator):
             if not columns:
                 self.report({'ERROR'},"Error: No column 'Level_X' found in CSV file.")
             df_filtered = df[df['Ifc Class'].notna()]
-            predefined_type_column = df_filtered['Predefined Type']
             classes_column = df_filtered['Ifc Class']
+            predefined_type_column = df_filtered['Predefined Type']
+            object_type_column = df_filtered['Object Type']
+            
             meshes_names = df_filtered[columns].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1) 
-            ifcTreeAssembly.createIfcAssemblyTree(self,active_obj,meshes_names,classes_column,predefined_type_column) # Create a component tree of the Ifc Elements
+            ifcTreeAssembly.createIfcAssemblyTree(self,active_obj,meshes_names,classes_column,predefined_type_column,object_type_column) # Create a component tree of the Ifc Elements
             objects_to_delete = []
             ifcTreeAssembly.appendHierarchy(self,active_obj,objects_to_delete) # Each object of the original component tree is appended to "objects_to_delete"
             ifcTreeAssembly.deleteArray(self,objects_to_delete) # Each element in the array is deleted (the original component tree is deleted)
