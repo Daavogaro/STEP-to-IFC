@@ -41,7 +41,7 @@ class CustomPanel_MakeMeshesUnique(bpy.types.Panel):
     bl_idname = "CustomPanel_MakeMeshesUnique"
     bl_space_type = 'VIEW_3D' 
     bl_region_type = 'UI' 
-    bl_category = "PLM-to-IFC"
+    bl_category = "PLM-to-IFC" # Using the same category, we put the panel in the same category of the panel before
     def draw(self, context): 
         layout = self.layout 
         obj = context.object 
@@ -49,9 +49,9 @@ class CustomPanel_MakeMeshesUnique(bpy.types.Panel):
         if obj:
             # If an object is selected then the layout is shown
             # Create a row for the float
-            row2 = layout.row(align=True)
-            row2.label(text="Make meshes uniques")
-            row2.operator("meshesunique.run_script", text="", icon="MESH_DATA") # The operator has the bl_idname "object.run_script" and you can find it in the operators file
+            row = layout.row(align=True)
+            row.label(text="Make meshes uniques")
+            row.operator("meshesunique.run_script", text="", icon="MESH_DATA") # The operator has the bl_idname "object.run_script" and you can find it in the operators file
         else:
             # If an object is not selected then the layout is not shown, but only a label 
             layout.label(text="No object selected")
@@ -62,7 +62,7 @@ class CustomPanel_CSVPrint(bpy.types.Panel):
     bl_idname = "Custom_panel_CSVPrint" 
     bl_space_type = 'VIEW_3D' 
     bl_region_type = 'UI' 
-    bl_category = "PLM-to-IFC" # Using the same category, we put the panel in the same category of the panel before
+    bl_category = "PLM-to-IFC" 
     def draw(self, context):
         layout = self.layout
         obj = context.object
@@ -85,20 +85,18 @@ class CustomPanel_TreeAndGeometrySemplification(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         # Row for deleting objects based on the imported CSV
-        row2 = layout.row(align=True)
-        row2.label(text="Delete objects")
-        row2.operator("csv.delete", text="", icon="TRASH")
+        row1 = layout.row(align=True)
+        row1.label(text="Delete objects")
+        row1.operator("csv.delete", text="", icon="TRASH")
         # Row for simplify objects based on the imported CSV
-        row3 = layout.row(align=True)
-        row3.label(text="Simplify geometries")
-        row3.operator("csv.simplify", text="", icon="MESH_CUBE")
+        row2 = layout.row(align=True)
+        row2.label(text="Simplify geometries")
+        row2.operator("csv.simplify", text="", icon="MESH_CUBE")
         # Row for regrouping objects based on the imported CSV
-        row4 = layout.row(align=True)
-        row4.label(text="Group elements")
-        row4.operator("csv.regroup", text="", icon="OUTLINER")             
+        row3 = layout.row(align=True)
+        row3.label(text="Group elements")
+        row3.operator("csv.regroup", text="", icon="OUTLINER")             
 
-
-# Panel with Import & Process buttons
 class CustomPanel_CSVIFC(bpy.types.Panel):
     bl_label = "CSV of the components for IFC"
     bl_idname = "CustomPanel_CSVIFC"
@@ -108,13 +106,11 @@ class CustomPanel_CSVIFC(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        # Row for importing the CSV
-        row1 = layout.row(align=True)
-        row1.label(text="Download and load CSV template for IFC")
-        row1.operator("csv.exportifc", text="", icon="IMPORT")
-        row1.operator("csv.importifc", text="", icon="EXPORT")
+        row = layout.row(align=True)
+        row.label(text="Download and load CSV template for IFC")
+        row.operator("csv.exportifc", text="", icon="IMPORT")
+        row.operator("csv.importifc", text="", icon="EXPORT")
 
-# Panel with Import & Process buttons
 class CustomPanel_IFCClassAssgignment(bpy.types.Panel):
     bl_label = "Assign IFC classes and PSets"
     bl_idname = "CustomPanel_IFCClassAssignment"
@@ -124,10 +120,9 @@ class CustomPanel_IFCClassAssgignment(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        # Row for importing the CSV
-        row1 = layout.row(align=True)
-        row1.label(text="Assign IFC classes and PSets")
-        row1.operator("ifc.assign", text="", icon="HOME")
+        row = layout.row(align=True)
+        row.label(text="Assign IFC classes and PSets")
+        row.operator("ifc.assign", text="", icon="HOME")
 
 
 

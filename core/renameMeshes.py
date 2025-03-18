@@ -7,4 +7,4 @@ def makeMeshesUniques(obj,array=[]):
     for mesh in array:
         if mesh.data.users > 1:
             mesh.data = mesh.data.copy()
-
+    array = []

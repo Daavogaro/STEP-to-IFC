@@ -122,6 +122,12 @@ def simplifyCSVElement(self,file_path):
                     print(f"Vertices could not be calculated for the object '{value}'.")
 
 
+def select_hierarchy(obj):
+    obj.select_set(True)
+    for child in obj.children:
+        child.select_set(True)
+        select_hierarchy(child)
+
 def groupCSVElement(self,file_path):
     # Carica il CSV
     df = pd.read_csv(file_path, encoding="utf-8",delimiter=";")

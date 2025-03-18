@@ -1,6 +1,7 @@
 import bpy
 import os
 import csv
+import pandas as pd
 from .core import deleteSmallElements
 from .core import exportCSVComponentsTree
 from .core import importCSV
@@ -49,7 +50,7 @@ class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
             try:
                 renameMeshes.makeMeshesUniques(active_obj)
             except Exception as e:
-                self.report({'ERROR'}, f"Failed to save CSV: {e}")
+                self.report({'ERROR'}, f"Failed to make data uniques: {e}")
                 return {'CANCELLED'} # Cancel operation if there is an error
             self.report({'INFO'},"The CSV has been printed!") 
         else:
@@ -209,9 +210,14 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
             self.report({'ERROR'}, "No CSV file imported yet")
             return {'CANCELLED'}
         try:
-            active_obj = bpy.context.view_layer.objects.active
+            bpy.ops.object.select_all(action='DESELECT')
             for obj in bpy.data.objects:
                 obj.hide_set(False)
+            active_obj = bpy.context.view_layer.objects.active
+            importCSV.select_hierarchy(active_obj)
+            bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+            bpy.context.view_layer.objects.active = active_obj
+
             if active_obj: 
                 importCSV.groupCSVElement(self,csv_filepath) # Read the CSV and regrup objects under the object inserted in the "To be grouped" column
                 deleteSmallElements.hideLeafWithNoMesh(active_obj) 
@@ -220,6 +226,8 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
                 importCSV.merge_contained_meshes(active_obj) # Merge all the meshes under the same father into a unique mesh
                 importCSV.rename_meshes_with_parent_name(active_obj) # The new mesh is renamed with the name of the father
                 bpy.ops.outliner.orphans_purge(do_recursive=False)
+                bpy.context.view_layer.objects.active = active_obj
+                active_obj.select_set(True)
             else:
                 self.report({'ERROR'}, "No active object selected.")
         except Exception as e:
@@ -270,7 +278,7 @@ class CSVPrintIFC_Runscript(bpy.types.Operator):
         return {'RUNNING_MODAL'} # Keep the operator running until user selects a folder
 
 
-# Global variable to store CSV file path
+# Global variable to store IFC CSV file path
 csv_ifc_filepath = ""
 
 class IFCCSVLoad_Runscript(bpy.types.Operator):
@@ -316,17 +324,28 @@ class IFCAssign_Runscript(bpy.types.Operator):
         global csv_ifc_filepath
         if not csv_ifc_filepath:
             self.report({'ERROR'}, "No CSV file imported yet")
-            return {'CANCELLED'}
-        
+            return {'CANCELLED'}  
         try:
-            with open(csv_ifc_filepath, 'r', newline='') as file:
-                reader = csv.reader(file)
-                data = list(reader)
             active_obj = bpy.context.view_layer.objects.active
-            ifcTreeAssembly.createIfcAssemblyTree(self,active_obj,csv_ifc_filepath)
+            df = pd.read_csv(csv_ifc_filepath, encoding="utf-8",delimiter=";")
+            # Verifica che la colonna "To be deleted" esista
+            if "Ifc Class" not in df.columns:
+                self.report({'ERROR'},"Error: The column 'Ifc Class' does not exist in the CSV file.")
+            if "Predefined Type" not in df.columns:
+                self.report({'ERROR'},"Error: The column 'Predefined Type' does not exist in the CSV file.")
+            if "Object Type" not in df.columns:
+                self.report({'ERROR'},"Error: The column 'Object Type' does not exist in the CSV file.")    
+            columns = [col for col in df.columns if col.startswith('Level_')]
+            if not columns:
+                self.report({'ERROR'},"Error: No column 'Level_X' found in CSV file.")
+            df_filtered = df[df['Ifc Class'].notna()]
+            predefined_type_column = df_filtered['Predefined Type']
+            classes_column = df_filtered['Ifc Class']
+            meshes_names = df_filtered[columns].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1) 
+            ifcTreeAssembly.createIfcAssemblyTree(self,active_obj,meshes_names,classes_column,predefined_type_column) # Create a component tree of the Ifc Elements
             objects_to_delete = []
-            ifcTreeAssembly.appendHierarchy(self,active_obj,objects_to_delete)
-            ifcTreeAssembly.deleteArray(self,objects_to_delete)
+            ifcTreeAssembly.appendHierarchy(self,active_obj,objects_to_delete) # Each object of the original component tree is appended to "objects_to_delete"
+            ifcTreeAssembly.deleteArray(self,objects_to_delete) # Each element in the array is deleted (the original component tree is deleted)
 
         except Exception as e:
             self.report({'ERROR'}, f"Error in assigning IFC: {e}")
