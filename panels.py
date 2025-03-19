@@ -35,7 +35,7 @@ class CustomPanel_DeleteSmallElements(bpy.types.Panel):
             layout.label(text="No object selected")
 
 # For reading rapidity sake, comments from now won't repeat the same thing said before
-
+# Panel for makinf meshes uniques
 class CustomPanel_MakeMeshesUnique(bpy.types.Panel):
     bl_label = "Make meshes uniques" 
     bl_idname = "CustomPanel_MakeMeshesUnique"
@@ -45,19 +45,15 @@ class CustomPanel_MakeMeshesUnique(bpy.types.Panel):
     def draw(self, context): 
         layout = self.layout 
         obj = context.object 
-
         if obj:
-            # If an object is selected then the layout is shown
-            # Create a row for the float
             row = layout.row(align=True)
             row.label(text="Make meshes uniques")
-            row.operator("meshesunique.run_script", text="", icon="MESH_DATA") # The operator has the bl_idname "object.run_script" and you can find it in the operators file
+            row.operator("meshesunique.run_script", text="", icon="MESH_DATA")
         else:
-            # If an object is not selected then the layout is not shown, but only a label 
             layout.label(text="No object selected")
 
-
-class CustomPanel_CSVPrint(bpy.types.Panel):
+# Panel to download and upload the CSV of the components 
+class CustomPanel_CSVComponents(bpy.types.Panel):
     bl_label = "CSV of the components"
     bl_idname = "Custom_panel_CSVPrint" 
     bl_space_type = 'VIEW_3D' 
@@ -97,6 +93,7 @@ class CustomPanel_TreeAndGeometrySemplification(bpy.types.Panel):
         row3.label(text="Group elements")
         row3.operator("csv.regroup", text="", icon="OUTLINER")             
 
+# Panel for download and upload the CSV of the components with the IFC classes, and PSets
 class CustomPanel_CSVIFC(bpy.types.Panel):
     bl_label = "CSV of the components for IFC"
     bl_idname = "CustomPanel_CSVIFC"
@@ -111,6 +108,7 @@ class CustomPanel_CSVIFC(bpy.types.Panel):
         row.operator("csv.exportifc", text="", icon="IMPORT")
         row.operator("csv.importifc", text="", icon="EXPORT")
 
+# Panel for assign the IFC classes and Psets to meshes
 class CustomPanel_IFCClassAssgignment(bpy.types.Panel):
     bl_label = "Assign IFC classes and PSets"
     bl_idname = "CustomPanel_IFCClassAssignment"
@@ -133,7 +131,7 @@ def register():
     
     bpy.utils.register_class(CustomPanel_MakeMeshesUnique)
     bpy.utils.register_class(CustomPanel_DeleteSmallElements)
-    bpy.utils.register_class(CustomPanel_CSVPrint)
+    bpy.utils.register_class(CustomPanel_CSVComponents)
     bpy.utils.register_class(CustomPanel_TreeAndGeometrySemplification)
     bpy.utils.register_class(CustomPanel_CSVIFC)
     bpy.utils.register_class(CustomPanel_IFCClassAssgignment)
@@ -142,7 +140,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(CustomPanel_MakeMeshesUnique)
     bpy.utils.unregister_class(CustomPanel_DeleteSmallElements)
-    bpy.utils.unregister_class(CustomPanel_CSVPrint)
+    bpy.utils.unregister_class(CustomPanel_CSVComponents)
     bpy.utils.unregister_class(CustomPanel_TreeAndGeometrySemplification)
     bpy.utils.unregister_class(CustomPanel_CSVIFC)
     bpy.utils.unregister_class(CustomPanel_IFCClassAssgignment)

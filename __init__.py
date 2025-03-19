@@ -29,3 +29,4 @@ if __name__ == "__main__":
 # COSE DA FARE:
 # - Metti gli errori degli utenti non come print ma come self.report({'ERROR', "..."})
 # - Controllare che tutti gli script siano riferiti all'oggetto attivo e non a gli oggetti di scena, se no si fa un casino
+# - Ottimizzare il codice soprattutto per la lettura dei CSV: evitare che vengano letti ogni ciclo, ma solo una volta

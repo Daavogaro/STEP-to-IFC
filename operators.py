@@ -248,7 +248,7 @@ class CSVPrintIFC_Runscript(bpy.types.Operator):
             # Define the filename and path for the CSV file
             csv_filename = os.path.join(self.filepath, "componentsTreeIFC.csv")
             # Initialize the CSV data with a header row
-            tree_data = [["Level_" + str(i) for i in range(20)]+["Ifc Class","Predefined Type","Pset_Name/Prop_Name/Prop_Value_1","Pset_Name/Prop_Name/Prop_Value_2"]]
+            tree_data = [["Level_" + str(i) for i in range(20)]+["Ifc Class","Predefined Type","Object Type","Pset_Name/Prop_Name/Prop_Value_1","Pset_Name/Prop_Name/Prop_Value_2"]]
             # Retrieve the hierarchical tree structure of objects in the scene
             tree_data.extend(exportCSVComponentsTree.get_object_tree(active_obj, []))   
             # Try to write the CSV file
