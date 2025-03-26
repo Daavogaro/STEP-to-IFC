@@ -7,6 +7,7 @@ from .core import exportCSVComponentsTree
 from .core import importCSV
 from .core import renameMeshes
 from .core import ifcTreeAssembly
+from .core import ifcAssignPsets
 
 
 class DeleteSmallElements_RunScript(bpy.types.Operator):
@@ -327,28 +328,67 @@ class IFCAssign_Runscript(bpy.types.Operator):
             return {'CANCELLED'}  
         try:
             active_obj = bpy.context.view_layer.objects.active
-            df = pd.read_csv(csv_ifc_filepath, encoding="utf-8",delimiter=";")
-            # Verifica che la colonna "To be deleted" esista
-            if "Ifc Class" not in df.columns:
-                self.report({'ERROR'},"Error: The column 'Ifc Class' does not exist in the CSV file.")
-            if "Predefined Type" not in df.columns:
-                self.report({'ERROR'},"Error: The column 'Predefined Type' does not exist in the CSV file.")
-            if "Object Type" not in df.columns:
-                self.report({'ERROR'},"Error: The column 'Object Type' does not exist in the CSV file.")    
-            columns = [col for col in df.columns if col.startswith('Level_')]
-            if not columns:
-                self.report({'ERROR'},"Error: No column 'Level_X' found in CSV file.")
-            df_filtered = df[df['Ifc Class'].notna()]
-            classes_column = df_filtered['Ifc Class']
-            predefined_type_column = df_filtered['Predefined Type']
-            object_type_column = df_filtered['Object Type']
-            
-            meshes_names = df_filtered[columns].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1) 
-            ifcTreeAssembly.createIfcAssemblyTree(self,active_obj,meshes_names,classes_column,predefined_type_column,object_type_column) # Create a component tree of the Ifc Elements
-            objects_to_delete = []
-            ifcTreeAssembly.appendHierarchy(self,active_obj,objects_to_delete) # Each object of the original component tree is appended to "objects_to_delete"
-            ifcTreeAssembly.deleteArray(self,objects_to_delete) # Each element in the array is deleted (the original component tree is deleted)
+            if active_obj:
+                df = pd.read_csv(csv_ifc_filepath, encoding="utf-8",delimiter=";")
+                # Verifica che la colonna "To be deleted" esista
+                if "Ifc Class" not in df.columns:
+                    self.report({'ERROR'},"Error: The column 'Ifc Class' does not exist in the CSV file.")
+                if "Predefined Type" not in df.columns:
+                    self.report({'ERROR'},"Error: The column 'Predefined Type' does not exist in the CSV file.")
+                if "Object Type" not in df.columns:
+                    self.report({'ERROR'},"Error: The column 'Object Type' does not exist in the CSV file.")    
+                columns = [col for col in df.columns if col.startswith('Level_')]
+                if not columns:
+                    self.report({'ERROR'},"Error: No column 'Level_X' found in CSV file.")
+                df_filtered = df[df['Ifc Class'].notna()]
+                classes_column = df_filtered['Ifc Class']
+                predefined_type_column = df_filtered['Predefined Type']
+                object_type_column = df_filtered['Object Type']
 
+                meshes_names = df_filtered[columns].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1) 
+                ifcTreeAssembly.createIfcAssemblyTree(self,active_obj,meshes_names,classes_column,predefined_type_column,object_type_column) # Create a component tree of the Ifc Elements
+                objects_to_delete = []
+                ifcTreeAssembly.appendHierarchy(self,active_obj,objects_to_delete) # Each object of the original component tree is appended to "objects_to_delete"
+                ifcTreeAssembly.deleteArray(self,objects_to_delete) # Each element in the array is deleted (the original component tree is deleted)
+            else:
+                self.report({'ERROR'}, "No active object selected.")
+        except Exception as e:
+            self.report({'ERROR'}, f"Error in assigning IFC: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+    
+
+class PsetsAssign_Runscript(bpy.types.Operator):
+    bl_idname = "psets.assign"
+    bl_label = "Assign IFC Psets"
+    bl_description = "Assign IFC Property Sets based on the CSV"
+
+    def execute(self, context):
+        global csv_ifc_filepath
+        if not csv_ifc_filepath:
+            self.report({'ERROR'}, "No CSV file imported yet")
+            return {'CANCELLED'}  
+        try:
+            active_obj = bpy.context.view_layer.objects.active
+            if active_obj:
+                df = pd.read_csv(csv_ifc_filepath, encoding="utf-8",delimiter=";")
+
+
+                if "Ifc Class" not in df.columns:
+                    self.report({'ERROR'},"Error: The column 'Ifc Class' does not exist in the CSV file.")
+                levels = [col for col in df.columns if col.startswith('Level_')]
+                psets = [col for col in df.columns if col.startswith('Pset_')]
+                if not levels:
+                    self.report({'ERROR'},"Error: No column 'Level_...' found in CSV file.")
+                if not psets:
+                    self.report({'ERROR'},"Error: No column 'Psets_...' found in CSV file.")
+                df_filtered = df[df['Ifc Class'].notna()]
+                psets_columns=df_filtered[psets]
+                meshes_names = df_filtered[levels].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1) 
+                ifcAssignPsets.assign_pset(meshes_names,psets_columns)
+                self.report({'INFO'}, "PSets are not visible in Blender, you have to save and reopen the IFC file!")
+            else:
+                self.report({'ERROR'}, "No active object selected.")
         except Exception as e:
             self.report({'ERROR'}, f"Error in assigning IFC: {e}")
             return {'CANCELLED'}
@@ -366,6 +406,7 @@ def register():
     bpy.utils.register_class(CSVPrintIFC_Runscript)
     bpy.utils.register_class(IFCCSVLoad_Runscript)
     bpy.utils.register_class(IFCAssign_Runscript)
+    bpy.utils.register_class(PsetsAssign_Runscript)
 
 def unregister():
     bpy.utils.unregister_class(MakeMeshesDataUniques_Runscript)
@@ -378,3 +419,4 @@ def unregister():
     bpy.utils.unregister_class(CSVPrintIFC_Runscript)
     bpy.utils.unregister_class(IFCCSVLoad_Runscript)
     bpy.utils.unregister_class(IFCAssign_Runscript)
+    bpy.utils.unregister_class(PsetsAssign_Runscript)

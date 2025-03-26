@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "PLM-to-IFC",
+    "name": "STEP-to-IFC",
     "blender": (3, 0, 0),  # Compatible Blender version
     "category": "Object",  # Category in Blender UI
     "author": "Davide Avogaro - davide.avogaro.2@phd.unipd.it",

@@ -16,7 +16,7 @@ class CustomPanel_DeleteSmallElements(bpy.types.Panel):
     bl_idname = "Custom_panel_DeleteSmallElements" # ID of the panel
     bl_space_type = 'VIEW_3D' # Sidebar in 3D View
     bl_region_type = 'UI' # Places it in the side panel
-    bl_category = "PLM-to-IFC" # New tab in the N-panel
+    bl_category = "STEP-to-IFC" # New tab in the N-panel
     def draw(self, context): # This function is mandatory and is to draw the panel in the UI
         layout = self.layout # The layout is reffered to the layout of the panel that we are creating
         obj = context.object # With this we can ensure that the layout (button, properties, etc...) that we want to add are shown only when an object is selected
@@ -41,7 +41,7 @@ class CustomPanel_MakeMeshesUnique(bpy.types.Panel):
     bl_idname = "CustomPanel_MakeMeshesUnique"
     bl_space_type = 'VIEW_3D' 
     bl_region_type = 'UI' 
-    bl_category = "PLM-to-IFC" # Using the same category, we put the panel in the same category of the panel before
+    bl_category = "STEP-to-IFC" # Using the same category, we put the panel in the same category of the panel before
     def draw(self, context): 
         layout = self.layout 
         obj = context.object 
@@ -58,7 +58,7 @@ class CustomPanel_CSVComponents(bpy.types.Panel):
     bl_idname = "Custom_panel_CSVPrint" 
     bl_space_type = 'VIEW_3D' 
     bl_region_type = 'UI' 
-    bl_category = "PLM-to-IFC" 
+    bl_category = "STEP-to-IFC" 
     def draw(self, context):
         layout = self.layout
         obj = context.object
@@ -76,7 +76,7 @@ class CustomPanel_TreeAndGeometrySemplification(bpy.types.Panel):
     bl_idname = "CustomPanel_TreeAndGeometrySemplification"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "PLM-to-IFC"
+    bl_category = "STEP-to-IFC"
 
     def draw(self, context):
         layout = self.layout
@@ -99,7 +99,7 @@ class CustomPanel_CSVIFC(bpy.types.Panel):
     bl_idname = "CustomPanel_CSVIFC"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "PLM-to-IFC"
+    bl_category = "STEP-to-IFC"
 
     def draw(self, context):
         layout = self.layout
@@ -114,13 +114,17 @@ class CustomPanel_IFCClassAssgignment(bpy.types.Panel):
     bl_idname = "CustomPanel_IFCClassAssignment"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "PLM-to-IFC"
+    bl_category = "STEP-to-IFC"
 
     def draw(self, context):
         layout = self.layout
-        row = layout.row(align=True)
-        row.label(text="Assign IFC classes and PSets")
-        row.operator("ifc.assign", text="", icon="HOME")
+        row1 = layout.row(align=True)
+        row1.label(text="Assign IFC classes")
+        row1.operator("ifc.assign", text="", icon="HOME")
+        row2 = layout.row(align=True)
+        row2.label(text="Assign and PSets to IFC elements")
+        row2.operator("psets.assign", text="", icon="LONGDISPLAY")
+
 
 
 
