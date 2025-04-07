@@ -122,7 +122,7 @@ class CustomPanel_IFCClassAssgignment(bpy.types.Panel):
         row1.label(text="Assign IFC classes")
         row1.operator("ifc.assign", text="", icon="HOME")
         row2 = layout.row(align=True)
-        row2.label(text="Assign and PSets to IFC elements")
+        row2.label(text="Assign PSets to IFC elements")
         row2.operator("psets.assign", text="", icon="LONGDISPLAY")
 
 

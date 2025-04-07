@@ -2,6 +2,7 @@ import bpy
 import os
 import csv
 import pandas as pd
+import time
 from .core import deleteSmallElements
 from .core import exportCSVComponentsTree
 from .core import importCSV
@@ -17,6 +18,7 @@ class DeleteSmallElements_RunScript(bpy.types.Operator):
 
     # This script is executed when the operator is clicked
     def execute(self,context): # These arguments are mandatory
+        start_time = time.perf_counter() # Starting the counter for measure the execution time
         min_size = context.object.my_properties.my_float # The minimum size for the X, Y and Z dimension is given by the user using the float property
         # The script will run on the active object (is different from selected object: you can select a lot of object, but you can have only one active object) and all its hiearchy
         active_obj = bpy.context.view_layer.objects.active
@@ -35,7 +37,10 @@ class DeleteSmallElements_RunScript(bpy.types.Operator):
             # This function delete all the hidden objects
             deleteSmallElements.delete_hidden_elements(active_obj)
             # This command purge all unused data left by deleted objects. In this way the memory is released
-            bpy.ops.outliner.orphans_purge(do_recursive=False)
+            bpy.ops.outliner.orphans_purge(do_recursive=False)  
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Execution time: {elapsed_time:.6f} seconds")
         else:
             self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
         self.report({'INFO'},"Small objects has been deleted!")
@@ -46,6 +51,7 @@ class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
     bl_label = "Make meshes data uniques"
     bl_description = "Some of the meshes' data could be duplicated. This could cause some issues with identification with excel file. For this reason is reccomanded to make meshes data unique with this command."        
     def execute(self, context):
+        start_time = time.perf_counter()
         if bpy.context.view_layer.objects.active:
             active_obj = bpy.context.view_layer.objects.active
             try:
@@ -53,7 +59,10 @@ class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
             except Exception as e:
                 self.report({'ERROR'}, f"Failed to make data uniques: {e}")
                 return {'CANCELLED'} # Cancel operation if there is an error
-            self.report({'INFO'},"The CSV has been printed!") 
+            self.report({'INFO'},"The CSV has been printed!")
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Execution time: {elapsed_time:.6f} seconds")
         else:
             self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
         self.report({'INFO'},"Meshes data made unique!")
@@ -67,6 +76,7 @@ class CSVPrint_Runscript(bpy.types.Operator):
     filepath: bpy.props.StringProperty(subtype="DIR_PATH")  # Property for selecting a directory where the CSV will be saved
 
     def execute(self, context):
+        start_time = time.perf_counter()
         if bpy.context.view_layer.objects.active:
             active_obj = bpy.context.view_layer.objects.active
             # Define the filename and path for the CSV file
@@ -82,12 +92,16 @@ class CSVPrint_Runscript(bpy.types.Operator):
                     writer.writerows(tree_data) # Write the rows based on tree_data
                 # Report success message in Blender
                 self.report({'INFO'}, f"CSV saved to {csv_filename}")
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Execution time: {elapsed_time:.6f} seconds")
             # Handle potential errors
             except Exception as e: 
                 self.report({'ERROR'}, f"Failed to save CSV: {e}")
                 return {'CANCELLED'} # Cancel operation if there is an error
             self.report({'INFO'},"The CSV has been printed!")   
             return {'FINISHED'} # Successfully completed operation
+            
         else:
             self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
 
@@ -112,6 +126,7 @@ class CSVImport_Runscript(bpy.types.Operator):
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")  # File selection
 
     def execute(self, context):
+        start_time = time.perf_counter()
         global csv_filepath  # Access global variable
         if not self.filepath:
             self.report({'ERROR'}, "No file selected")
@@ -129,6 +144,9 @@ class CSVImport_Runscript(bpy.types.Operator):
             if not data:
                 self.report({'WARNING'}, "CSV file is empty")
                 return {'CANCELLED'}
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Execution time: {elapsed_time:.6f} seconds")
             self.report({'INFO'}, f"Imported {len(data)} rows from CSV")
 
         except Exception as e:
@@ -146,6 +164,7 @@ class deleteCSVObject_RunScript(bpy.types.Operator):
     bl_description = "Delete all the object with the parameter 'To be deleted' set on 'Yes'"
 
     def execute(self, context):
+        start_time = time.perf_counter()
         global csv_filepath  # Access global variable
 
         if not csv_filepath:
@@ -164,6 +183,9 @@ class deleteCSVObject_RunScript(bpy.types.Operator):
                 deleteSmallElements.hideParentsWithHiddenChildren(active_obj) # Hide parents with hidden children
                 deleteSmallElements.delete_hidden_elements(active_obj) # Delete hidden elements
                 bpy.ops.outliner.orphans_purge(do_recursive=False) # Release the memory
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Execution time: {elapsed_time:.6f} seconds")
             else:
                 self.report({'ERROR'}, "No active object selected.")
         except Exception as e:
@@ -179,6 +201,7 @@ class simplifyCSVObject_RunScript(bpy.types.Operator):
     bl_description = "Simplify all the object with the parameter 'To be simiplified' set on 'Yes'"
 
     def execute(self, context):
+        start_time = time.perf_counter()
         global csv_filepath
         if not csv_filepath:
             self.report({'ERROR'}, "No CSV file imported yet")
@@ -192,6 +215,9 @@ class simplifyCSVObject_RunScript(bpy.types.Operator):
                 bpy.ops.outliner.orphans_purge(do_recursive=False)
                 bpy.context.view_layer.objects.active = active_obj
                 active_obj.select_set(True)
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Execution time: {elapsed_time:.6f} seconds")
             else:
                 self.report({'ERROR'}, "No active object selected.")
         except Exception as e:
@@ -206,6 +232,7 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
     bl_description = "Regroup object based on the parameter 'To be grouped'"
 
     def execute(self, context):
+        start_time = time.perf_counter()
         global csv_filepath
         if not csv_filepath:
             self.report({'ERROR'}, "No CSV file imported yet")
@@ -218,6 +245,7 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
             importCSV.select_hierarchy(active_obj)
             bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
             bpy.context.view_layer.objects.active = active_obj
+            
 
             if active_obj: 
                 importCSV.groupCSVElement(self,csv_filepath) # Read the CSV and regrup objects under the object inserted in the "To be grouped" column
@@ -229,6 +257,9 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
                 bpy.ops.outliner.orphans_purge(do_recursive=False)
                 bpy.context.view_layer.objects.active = active_obj
                 active_obj.select_set(True)
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Execution time: {elapsed_time:.6f} seconds")
             else:
                 self.report({'ERROR'}, "No active object selected.")
         except Exception as e:
@@ -244,6 +275,7 @@ class CSVPrintIFC_Runscript(bpy.types.Operator):
     filepath: bpy.props.StringProperty(subtype="DIR_PATH")  # Property for selecting a directory where the CSV will be saved
 
     def execute(self, context):
+        start_time = time.perf_counter()
         if bpy.context.view_layer.objects.active:
             active_obj = bpy.context.view_layer.objects.active
             # Define the filename and path for the CSV file
@@ -259,6 +291,9 @@ class CSVPrintIFC_Runscript(bpy.types.Operator):
                     writer.writerows(tree_data) # Write the rows based on tree_data
                 # Report success message in Blender
                 self.report({'INFO'}, f"CSV saved to {csv_filename}")
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Execution time: {elapsed_time:.6f} seconds")
             # Handle potential errors
             except Exception as e: 
                 self.report({'ERROR'}, f"Failed to save CSV: {e}")
@@ -289,6 +324,7 @@ class IFCCSVLoad_Runscript(bpy.types.Operator):
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")  # File selection
 
     def execute(self, context):
+        start_time = time.perf_counter()
         global csv_ifc_filepath  # Access global variable
         if not self.filepath:
             self.report({'ERROR'}, "No file selected")
@@ -306,6 +342,9 @@ class IFCCSVLoad_Runscript(bpy.types.Operator):
                 self.report({'WARNING'}, "CSV file is empty")
                 return {'CANCELLED'}
             self.report({'INFO'}, f"Imported {len(data)} rows from CSV")
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Execution time: {elapsed_time:.6f} seconds")
 
         except Exception as e:
             self.report({'ERROR'}, f"Failed to read CSV: {e}")
@@ -322,6 +361,7 @@ class IFCAssign_Runscript(bpy.types.Operator):
     bl_description = "Assign IFC classes, predefined type and Property Sets based on the CSV"
 
     def execute(self, context):
+        start_time = time.perf_counter()
         global csv_ifc_filepath
         if not csv_ifc_filepath:
             self.report({'ERROR'}, "No CSV file imported yet")
@@ -350,6 +390,9 @@ class IFCAssign_Runscript(bpy.types.Operator):
                 objects_to_delete = []
                 ifcTreeAssembly.appendHierarchy(self,active_obj,objects_to_delete) # Each object of the original component tree is appended to "objects_to_delete"
                 ifcTreeAssembly.deleteArray(self,objects_to_delete) # Each element in the array is deleted (the original component tree is deleted)
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Execution time: {elapsed_time:.6f} seconds")
             else:
                 self.report({'ERROR'}, "No active object selected.")
         except Exception as e:
@@ -364,6 +407,7 @@ class PsetsAssign_Runscript(bpy.types.Operator):
     bl_description = "Assign IFC Property Sets based on the CSV"
 
     def execute(self, context):
+        start_time = time.perf_counter()
         global csv_ifc_filepath
         if not csv_ifc_filepath:
             self.report({'ERROR'}, "No CSV file imported yet")
@@ -387,6 +431,9 @@ class PsetsAssign_Runscript(bpy.types.Operator):
                 meshes_names = df_filtered[levels].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1) 
                 ifcAssignPsets.assign_pset(meshes_names,psets_columns)
                 self.report({'INFO'}, "PSets are not visible in Blender, you have to save and reopen the IFC file!")
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Execution time: {elapsed_time:.6f} seconds")
             else:
                 self.report({'ERROR'}, "No active object selected.")
         except Exception as e:
