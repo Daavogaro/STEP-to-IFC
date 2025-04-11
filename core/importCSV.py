@@ -1,6 +1,6 @@
 import bpy  # Blender Python API
 import pandas as pd  # Library for handling CSV files
-import bmesh  # Blender's module for working with mesh data
+from mathutils import Vector
 
 # Function to delete objects in Blender based on a CSV file
 def deleteCSVElement(self,file_path):
@@ -32,69 +32,47 @@ def deleteCSVElement(self,file_path):
     self.report({'INFO'},"Deletion completed.") 
 
 
-# Function to find the external vertices (bounding box corners) of a mesh object
-def find_external_vertices(obj):
-    if obj.type != 'MESH':
-        return None  # Only process mesh objects
-    bpy.ops.object.select_all(action='DESELECT')  # Deselect all objects
-    obj.select_set(True)  # Select the given object
-    bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.mode_set(mode='OBJECT')  # Ensure we are in object mode
-    # Create a BMesh instance to manipulate the mesh
-    bm = bmesh.new()
-    bm.from_mesh(obj.data)
-    bm.verts.ensure_lookup_table()  # Ensure vertex lookup is available
-    # Compute bounding box min/max coordinates
-    min_x = min(bm.verts, key=lambda v: v.co.x).co.x
-    max_x = max(bm.verts, key=lambda v: v.co.x).co.x
-    min_y = min(bm.verts, key=lambda v: v.co.y).co.y
-    max_y = max(bm.verts, key=lambda v: v.co.y).co.y
-    min_z = min(bm.verts, key=lambda v: v.co.z).co.z
-    max_z = max(bm.verts, key=lambda v: v.co.z).co.z
-    # List of external vertices (bounding box corners)
-    external_verts = [
-        (min_x, min_y, min_z), (min_x, min_y, max_z),
-        (min_x, max_y, min_z), (min_x, max_y, max_z),
-        (max_x, min_y, min_z), (max_x, min_y, max_z),
-        (max_x, max_y, min_z), (max_x, max_y, max_z)
-    ]
-    bm.free()  # Free the BMesh memory
-    return external_verts
-
-
 # Function to create a new cube from the external vertices of an object
-def create_cube_from_vertices(verts, obj):
+def create_bbox(obj):
     # Store original names
     original_mesh_name = obj.data.name
     original_object_name = obj.name
     # Change the name of the object (in this way we can apply the original name when we recreate the object)
     obj.data.name = f"{original_mesh_name}_old"
     obj.name = f"{original_object_name}_old"
+    # Get world-space bounding box corners
+    bbox_corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+
+    # Define the 8 vertices of the box
+    verts = bbox_corners
+
+    # Define the faces using the vertex indices
+    faces = [
+        (0, 1, 2, 3),  # Bottom
+        (4, 5, 6, 7),  # Top
+        (0, 1, 5, 4),  # Front
+        (2, 3, 7, 6),  # Back
+        (1, 2, 6, 5),  # Right
+        (0, 3, 7, 4)   # Left
+    ]
+
     # Create a new mesh and object
-    mesh = bpy.data.meshes.new(original_mesh_name)
-    cube = bpy.data.objects.new(original_object_name, mesh)
-    # Link the new cube to the same collection as the original object
+    mesh_data = bpy.data.meshes.new(original_mesh_name)
+    mesh_data.from_pydata(verts, [], faces)
+    mesh_data.update()
+
+    bbox_obj = bpy.data.objects.new(original_object_name, mesh_data)
+    bbox_obj.parent = obj.parent
+     # Link the new cube to the same collection as the original object
     for collection in obj.users_collection:
-        collection.objects.link(cube)
-    # Define the cube's faces using the provided vertices
-    mesh.from_pydata(verts, [], [
-        (0, 1, 3, 2), (4, 5, 7, 6),
-        (0, 1, 5, 4), (2, 3, 7, 6),
-        (0, 2, 6, 4), (1, 3, 7, 5)
-    ])
-    mesh.update()
+        collection.objects.link(bbox_obj)
     # Copy materials from the original object
     if obj.material_slots:
         for material_slot in obj.material_slots:
-            cube.data.materials.append(material_slot.material)
+            bbox_obj.data.materials.append(material_slot.material)
     # Maintain hierarchy by assigning the same parent
-    cube.parent = obj.parent
-    # Copy position, rotation, and scale
-    cube.location = obj.location
-    cube.rotation_euler = obj.rotation_euler
-    cube.scale = obj.scale
+    print(f"Bounding box mesh created for '{original_object_name}'.")
 
-    return cube
 
 
 # Function to replace objects with a simplified cube based on the CSV file
@@ -113,13 +91,11 @@ def simplifyCSVElement(self,file_path):
         if value and isinstance(value, str):
             obj = bpy.data.objects.get(value)
             if obj:
-                verts = find_external_vertices(obj)
-                if verts:
-                    create_cube_from_vertices(verts, obj)
-                    bpy.data.objects.remove(obj, do_unlink=True)
-                    print(f"Object '{value}' has been replaced with a cube.")
-                else:
-                    print(f"Vertices could not be calculated for the object '{value}'.")
+                create_bbox(obj)
+                bpy.data.objects.remove(obj, do_unlink=True)
+                print(f"Object '{value}' has been replaced with a cube.")
+            else:
+                print(f"Vertices could not be calculated for the object '{value}'.")
 
 
 def select_hierarchy(obj):
@@ -128,11 +104,18 @@ def select_hierarchy(obj):
         child.select_set(True)
         select_hierarchy(child)
 
+def select_hierarchy_not_mesh(obj):
+    # obj.select_set(True)
+    for child in obj.children:
+        if not child.type  == 'MESH':
+            child.select_set(True)
+        select_hierarchy_not_mesh(child)
+
 def groupCSVElement(self,file_path):
     # Carica il CSV
     df = pd.read_csv(file_path, encoding="utf-8",delimiter=";")
 
-    # Verifica che la colonna "To be deleted" esista
+    # Verifica che la colonna "To be grouped under" esistarr
     if "To be grouped under" not in df.columns:
         self.report({'ERROR'},"Error: The column 'To be grouped under' does not exist in the CSV file.")
         return

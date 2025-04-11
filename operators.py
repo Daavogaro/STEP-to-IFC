@@ -56,6 +56,12 @@ class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
             active_obj = bpy.context.view_layer.objects.active
             try:
                 renameMeshes.makeMeshesUniques(active_obj)
+
+                importCSV.select_hierarchy_not_mesh(active_obj)
+                bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.context.view_layer.objects.active = active_obj
+                active_obj.select_set(True)
             except Exception as e:
                 self.report({'ERROR'}, f"Failed to make data uniques: {e}")
                 return {'CANCELLED'} # Cancel operation if there is an error
