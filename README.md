@@ -13,4 +13,4 @@ Although the main focus is STEP to IFC conversion, the addon is compatible with 
    -  If you don't find the addons folder you have to <ins>make a new folder</ins>
 4. Go to Edit > Preferences > Add - ons and if the steps before are correct you should see the STEP-to-IFC add-on. Select it
 5. Now if you open the side panel pressing the shortcut N or opening it manually by double clicking on the arrow
-   ![Blender installation video](/assets/images/addon_installation.mp4)
+   ![Blender installation video](/assets/images/addon_installation.gif)
