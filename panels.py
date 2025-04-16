@@ -12,7 +12,7 @@ class MyProperties(bpy.types.PropertyGroup):
 
 
 class CustomPanel_GeomAndTreeSempl(bpy.types.Panel):
-    bl_label = "Geometry and tree assembly semplification" # Title of the panel
+    bl_label = "Geometry and tree assembly simplification" # Title of the panel
     bl_idname = "Custom_panel_GeoAndTreeSempl" # ID of the panel
     bl_space_type = 'VIEW_3D' # Sidebar in 3D View
     bl_region_type = 'UI' # Places it in the side panel
