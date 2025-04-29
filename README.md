@@ -1,6 +1,6 @@
 # STEP-to-IFC Blender Add-on
 
-Although STEP (ISO 10303-21) and IFC (ISO 16739-1) are both standardized, their conceptual and practical incompatibilities continue to hinder seamless data exchange between the manufacturing and construction sectors. The approach is not merely a format conversion but a structured system to adapt industrial logic to the information needs of civil design—ensuring semantic integrity and computational efficiency. This workflow is scalable, transparent and open-source, and thanks to the intuitive User Interface is usable also in professional context without advanced programming skills.
+Although STEP (ISO 10303-21) and IFC (ISO 16739-1) are both standardized, their conceptual and practical incompatibilities continue to hinder seamless data exchange between the manufacturing and construction sectors. The approach is not merely a format conversion but a structured system to adapt industrial logic to the information needs of civil design—ensuring semantic integrity and computational efficiency. This workflow is scalable, transparent and open-source, and thanks to the intuitive User Interface is usable also in professional context without advanced programming skills. This work is described in a paper, the preprint of which is available at the following link: [Click to read the paper](https://www.preprints.org/manuscript/202504.2028/v1)
 
 This addon for Blender was developed as part of a project to convert STEP files to the IFC-SPF (Step Physical File) format. The repository includes a complete guide to the procedure used, with all references used in the process.
 Although the main focus is STEP to IFC conversion, the addon is compatible with `glTF`, `FBX`, or any other supported `Blender format`.
@@ -78,12 +78,12 @@ The first panel manages the simplification of geometries and the organization of
    | Assembly | Assembly_1 | Assembly_12 | ... | Part 3        |         |     | No            | No               | Assembly_12         |
    | Assembly | Assembly_1 | Assembly_13 | ... | Part 4        |         |     | No            | No               | Assembly_13         |
 
-   ![Blender exportation CSV](/assets/images/exportCSV.gif)
+   ![Blender exportation CSV](/assets/video/addon_exportCSV.gif)
 
 -  **Delete objects:** removes all meshes marked as _Yes_ in the _To be deleted_ column of the imported CSV file. Afterward, any empty assemblies (i.e., assemblies with no remaining parts) are also deleted to simplify the scene and reduce clutter.
 -  **Simplify geometries:** replaces the meshes marked as _Yes_ in the _To be simplified_ column with their corresponding bounding boxes. The original materials are retained, ensuring visual consistency while reducing geometric complexity.
 -  **Parse assemblies:** Organizes and groups meshes based on the values specified in the _To be grouped under_ column. Meshes assigned to the same assembly are merged into a single object, streamlining the structure and improving performance by reducing the number of separate elements in the hierarchy. </br>
-   ![Blender importation CSV](/assets/images/importCSV.gif)
+   ![Blender importation CSV](/assets/video/addon_importCSV.gif)
 
 ### Assign IFC classes and PSets
 
@@ -95,4 +95,4 @@ The first panel manages the simplification of geometries and the organization of
 
 -  **Assign IFC classes:** assigns the appropriate _IFC Class_, _Predefined Type_, and, when necessary, _Object Type_ to each mesh, based on the information provided in the CSV file.
 -  **Assign PSets to IFC elements:** applies _Property Sets_ and their defined _Properties_ to the IFC elements, following the structure of the CSV. When multiple properties are associated with the same Property Set, they are grouped accordingly, ensuring full compliance with the IFC standard. </br>
-   ![Blender conversion IFC](/assets/images/convertIFC.gif)
+   ![Blender conversion IFC](/assets/video/addon_convertIFC.gif)
