@@ -5,7 +5,7 @@ Although STEP (ISO 10303-21) and IFC (ISO 16739-1) are both standardized, their 
 This addon for Blender was developed as part of a project to convert STEP files to the IFC-SPF (Step Physical File) format. The repository includes a complete guide to the procedure used, with all references used in the process.
 Although the main focus is STEP to IFC conversion, the addon is compatible with `glTF`, `FBX`, or any other supported `Blender format`.
 
-## How to install the add-on
+## How to install the add-on (not updated to last 4.5 Blender version)
 
 1. **Install Blender** </br>
    Download and install the latest version from the official website [Blender Download](https://www.blender.org/download/)
