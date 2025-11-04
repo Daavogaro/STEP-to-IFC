@@ -49,10 +49,17 @@ class CustomPanel_GeomAndTreeSempl(bpy.types.Panel):
             row5 = layout.row(align=True)
             row5.label(text="Simplify geometries")
             row5.operator("csv.simplify", text="", icon="MESH_CUBE")
-            # Row for regrouping objects based on the imported CSV
+            # NEW Row for join complanar faces based on the imported CSV
             row6 = layout.row(align=True)
-            row6.label(text="Parse assemblies")
-            row6.operator("csv.regroup", text="", icon="OUTLINER")
+            row6.label(text="Join complanar faces")
+            row6.operator("joincomplanarfaces.run_script", text="", icon="MOD_TRIANGULATE")
+
+
+
+            # Row for regrouping objects based on the imported CSV
+            row7 = layout.row(align=True)
+            row7.label(text="Parse assemblies")
+            row7.operator("csv.regroup", text="", icon="OUTLINER")
         else:
             # If an object is not selected then the layout is not shown, but only a label 
             layout.label(text="No object selected")

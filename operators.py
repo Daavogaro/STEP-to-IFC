@@ -232,6 +232,35 @@ class simplifyCSVObject_RunScript(bpy.types.Operator):
         self.report({'INFO'}, "Simplified elements based on CSV")
         return {'FINISHED'}
 
+class joinComplanarFaces_RunScript(bpy.types.Operator):
+    bl_idname = "joincomplanarfaces.run_script"
+    bl_label = "Join complanar faces"
+    bl_description = "Join complanar faces after simplification"
+
+    def execute(self, context):
+        start_time = time.perf_counter()
+        try:
+            active_obj = bpy.context.view_layer.objects.active
+            for obj in bpy.data.objects:
+                obj.hide_set(False)
+            if active_obj:
+                # MANCA LA FUNZIONE PER JOIN COMPLANAR FACES
+                bpy.ops.outliner.orphans_purge(do_recursive=False)
+                bpy.context.view_layer.objects.active = active_obj
+                active_obj.select_set(True)
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Execution time: {elapsed_time:.6f} seconds")
+            else:
+                self.report({'ERROR'}, "No active object selected.")
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to process CSV: {e}")
+            return {'CANCELLED'}
+        self.report({'INFO'}, "Joined complanar faces")
+        return {'FINISHED'}
+
+
+
 class regroupCSVObject_RunScript(bpy.types.Operator):
     bl_idname = "csv.regroup"
     bl_label = "Regroup object based on CSV"
@@ -455,6 +484,7 @@ def register():
     bpy.utils.register_class(CSVImport_Runscript)
     bpy.utils.register_class(deleteCSVObject_RunScript)
     bpy.utils.register_class(simplifyCSVObject_RunScript)
+    bpy.utils.register_class(joinComplanarFaces_RunScript)
     bpy.utils.register_class(regroupCSVObject_RunScript)
     bpy.utils.register_class(CSVPrintIFC_Runscript)
     bpy.utils.register_class(IFCCSVLoad_Runscript)
@@ -468,6 +498,7 @@ def unregister():
     bpy.utils.unregister_class(CSVImport_Runscript)
     bpy.utils.unregister_class(deleteCSVObject_RunScript)
     bpy.utils.unregister_class(simplifyCSVObject_RunScript)
+    bpy.utils.unregister_class(joinComplanarFaces_RunScript)
     bpy.utils.unregister_class(regroupCSVObject_RunScript)
     bpy.utils.unregister_class(CSVPrintIFC_Runscript)
     bpy.utils.unregister_class(IFCCSVLoad_Runscript)
