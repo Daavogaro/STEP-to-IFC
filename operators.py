@@ -55,7 +55,7 @@ class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
         if bpy.context.view_layer.objects.active:
             active_obj = bpy.context.view_layer.objects.active
             try:
-                renameMeshes.makeMeshesUniques(active_obj)
+                renameMeshes.makeMeshesUnique_and_ApplyNonMeshTransforms(active_obj)
 
                 importCSV.select_hierarchy_not_mesh(active_obj)
                 bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)

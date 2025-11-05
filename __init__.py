@@ -4,6 +4,7 @@ bl_info = {
     "category": "Object",  # Category in Blender UI
     "author": "Davide Avogaro - davide.avogaro.2@phd.unipd.it",
     "description": "A simple add-on",
+    "version": (2, 0, 0),
 }
 
 from . import operators, panels  # Import other scripts

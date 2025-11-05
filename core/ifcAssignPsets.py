@@ -59,6 +59,7 @@ def assign_pset(meshes_names,psets_columns):
         if len(psets)>0:
             for pset in psets:
                 is_applicable=psetTool.Pset.is_pset_applicable(ifc_obj,pset['name']) # If the Pset is applicable
+                print("Il problema è qui")
                 if is_applicable:
                     print(f"For the obj {ifc_obj.Name} the {pset['name']} is applicable")
                     ifc_pset=ifcTool.Ifc.run("pset.add_pset",product=ifc_obj,name=pset['name']) # Add the Pset
