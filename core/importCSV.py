@@ -143,35 +143,57 @@ def groupCSVElement(self,file_path):
         parent_obj = bpy.data.objects[new_father_name]
         # Move the mesh under the specified parent
         mesh_obj.parent = parent_obj
-        
-# Function to group objects under a new parent based on CSV
+
+# Function to group objects under a new parent based on CSV        
 def merge_contained_meshes(obj):
-    # Create two arrays:
+    # Create two arrays:n
     mesh_children = [] # For children that are meshes
     object_children = [] # For children that are not meshes
+    
     for child in obj.children: # Append each child in the right array
         if child.type == 'MESH':
             mesh_children.append(child)
-        if not child.type  == 'MESH' or not child.type  == 'MATERIAL':
+        else:
             object_children.append(child)
-    if len(object_children)>0: # If the object_children array is not empty, iterate the function
-        for object_child in object_children:
-            merge_contained_meshes(object_child)
-    if len(mesh_children)>0: # If the mesh_children array is not empty
+
+    if mesh_children: # If the mesh_children array is not empty
         bpy.ops.object.select_all(action='DESELECT')
         bpy.context.view_layer.objects.active = mesh_children[0] # Make the first child active
-        for mesh_child in mesh_children: # Select all the children
-            mesh_child.select_set(True)        
+        
+        for m in mesh_children: # Select all the children meshes
+            m.select_set(True)
         # Force the opening of that window area to join elements
         for area in bpy.context.window.screen.areas:
             if area.type == 'VIEW_3D':
                 with bpy.context.temp_override(area=area):
-                    try:
-                        bpy.ops.object.join()
-                        print(f"Mesh merged under '{obj.name}'.")
-                    except RuntimeError as e:
-                        print(f"Error when joining meshes below '{obj.name}': {e}")
+                    bpy.ops.object.join()
                 break
+
+        print(f"Merged {len(mesh_children)} meshes under '{obj.name}'")
+        # Replace parent if it becomes empty afterward
+        if not object_children:
+            new_object = bpy.context.view_layer.objects.active
+            parent = obj.parent
+            old_name = obj.name
+
+            # Remove original only after merge + no more recursion needed
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+            new_object.name = old_name
+            new_object.parent = parent
+            parts = old_name.split(".")
+            new_object.data.name = ".".join(parts[:-1]) if len(parts) > 1 else old_name
+            return  # FULL STOP: obj no longer exists!
+        
+        # If there are still non-mesh children, rename the new merged mesh as the parent
+        if object_children:
+           new_object = bpy.context.view_layer.objects.active
+           parts = obj.name.split(".")
+           new_object.name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
+
+    # Continue recursion only into non-mesh objects
+    for child in object_children:
+        merge_contained_meshes(child)
 
 
 # Function to rename meshes with their parent's name

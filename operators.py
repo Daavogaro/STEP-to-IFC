@@ -288,7 +288,7 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
                 deleteSmallElements.hideParentsWithHiddenChildren(active_obj)
                 deleteSmallElements.delete_hidden_elements(active_obj)
                 importCSV.merge_contained_meshes(active_obj) # Merge all the meshes under the same father into a unique mesh
-                importCSV.rename_meshes_with_parent_name(active_obj) # The new mesh is renamed with the name of the father
+                # importCSV.rename_meshes_with_parent_name(active_obj) # The new mesh is renamed with the name of the father
                 bpy.ops.outliner.orphans_purge(do_recursive=False)
                 bpy.context.view_layer.objects.active = active_obj
                 active_obj.select_set(True)
