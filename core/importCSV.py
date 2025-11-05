@@ -194,18 +194,3 @@ def merge_contained_meshes(obj):
     # Continue recursion only into non-mesh objects
     for child in object_children:
         merge_contained_meshes(child)
-
-
-# Function to rename meshes with their parent's name
-def rename_meshes_with_parent_name(obj):
-    # Nome del parent senza l'ultimo elemento dopo il punto
-    parts = obj.name.split(".")
-    parent_base_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
-    
-    for child in obj.children:
-        if child.type == 'MESH' and child.parent:
-            old_name = child.name
-            child.name = parent_base_name
-            print(f"Renamed the mesh '{old_name}' to '{child.name}'")
-
-        rename_meshes_with_parent_name(child)

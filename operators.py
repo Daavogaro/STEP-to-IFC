@@ -3,12 +3,15 @@ import os
 import csv
 import pandas as pd
 import time
+
+
 from .core import deleteSmallElements
 from .core import exportCSVComponentsTree
 from .core import importCSV
 from .core import renameMeshes
 from .core import ifcTreeAssembly
 from .core import ifcAssignPsets
+from .core import joinComplanarFaces_v1
 
 
 class DeleteSmallElements_RunScript(bpy.types.Operator):
@@ -244,7 +247,11 @@ class joinComplanarFaces_RunScript(bpy.types.Operator):
             for obj in bpy.data.objects:
                 obj.hide_set(False)
             if active_obj:
-                # MANCA LA FUNZIONE PER JOIN COMPLANAR FACES
+                print("─────────────────────────────────────────────")
+                for obj in [o for o in bpy.data.objects if o.type == 'MESH']:
+                    bpy.context.view_layer.objects.active = obj
+                    joinComplanarFaces_v1.planar_merge(obj)
+                print("\n✅ Finished planar grouping + NGon merging for all meshes!")
                 bpy.ops.outliner.orphans_purge(do_recursive=False)
                 bpy.context.view_layer.objects.active = active_obj
                 active_obj.select_set(True)
@@ -288,7 +295,6 @@ class regroupCSVObject_RunScript(bpy.types.Operator):
                 deleteSmallElements.hideParentsWithHiddenChildren(active_obj)
                 deleteSmallElements.delete_hidden_elements(active_obj)
                 importCSV.merge_contained_meshes(active_obj) # Merge all the meshes under the same father into a unique mesh
-                # importCSV.rename_meshes_with_parent_name(active_obj) # The new mesh is renamed with the name of the father
                 bpy.ops.outliner.orphans_purge(do_recursive=False)
                 bpy.context.view_layer.objects.active = active_obj
                 active_obj.select_set(True)

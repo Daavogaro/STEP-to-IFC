@@ -195,9 +195,4 @@ def planar_merge(obj):
 # ----------------------------
 # Run for all meshes
 # ----------------------------
-print("─────────────────────────────────────────────")
-for obj in [o for o in bpy.data.objects if o.type == 'MESH']:
-    bpy.context.view_layer.objects.active = obj
-    planar_merge(obj)
 
-print("\n✅ Finished planar grouping + NGon merging for all meshes!")
