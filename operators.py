@@ -12,6 +12,7 @@ from .core import renameMeshes
 from .core import ifcTreeAssembly
 from .core import ifcAssignPsets
 from .core import joinComplanarFaces_v1
+from .core import polygonReduction
 
 
 class DeleteSmallElements_RunScript(bpy.types.Operator):
@@ -248,10 +249,11 @@ class joinComplanarFaces_RunScript(bpy.types.Operator):
                 obj.hide_set(False)
             if active_obj:
                 print("─────────────────────────────────────────────")
-                for obj in [o for o in bpy.data.objects if o.type == 'MESH']:
-                    bpy.context.view_layer.objects.active = obj
-                    joinComplanarFaces_v1.planar_merge(obj)
-                print("\n✅ Finished planar grouping + NGon merging for all meshes!")
+                polygonReduction.reduce_mesh(active_obj)
+                #for obj in [o for o in bpy.data.objects if o.type == 'MESH']:
+                #    bpy.context.view_layer.objects.active = obj
+                #    joinComplanarFaces_v1.planar_merge(obj)
+                #print("\n✅ Finished planar grouping + NGon merging for all meshes!")
                 bpy.ops.outliner.orphans_purge(do_recursive=False)
                 bpy.context.view_layer.objects.active = active_obj
                 active_obj.select_set(True)
@@ -469,7 +471,8 @@ class PsetsAssign_Runscript(bpy.types.Operator):
                     self.report({'ERROR'},"Error: No column 'Psets_...' found in CSV file.")
                 df_filtered = df[df['Ifc Class'].notna()]
                 psets_columns=df_filtered[psets]
-                meshes_names = df_filtered[levels].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1) 
+                meshes_names = df_filtered[levels].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1)
+                print(f"Meshes names are:{meshes_names}, Psets columns are:{psets_columns}") 
                 ifcAssignPsets.assign_pset(meshes_names,psets_columns)
                 self.report({'INFO'}, "PSets are not visible in Blender, you have to save and reopen the IFC file!")
                 end_time = time.perf_counter()

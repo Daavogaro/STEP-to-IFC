@@ -55,7 +55,9 @@ def assign_pset(meshes_names,psets_columns):
     for obj in all_obj_set:
         print("____________________________________________________")
         ifc_obj=(ifcTool.Ifc.get_entity(obj)) # Select the IFC object
+        print(f"Processing IFC Object: {ifc_obj.Name}")
         psets=return_psets(ifc_obj.Name,meshes_names,psets_columns) # Return the Psets related to that object in the CSV
+        print(f"Found {len(psets)} Psets to assign.")
         if len(psets)>0:
             for pset in psets:
                 is_applicable=psetTool.Pset.is_pset_applicable(ifc_obj,pset['name']) # If the Pset is applicable

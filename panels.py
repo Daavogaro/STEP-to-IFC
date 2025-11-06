@@ -4,7 +4,7 @@ class MyProperties(bpy.types.PropertyGroup):
     my_float: bpy.props.FloatProperty(
         name="[m]",
         description="Set the minimum X,Y and Z dimensions of an object",
-        default=0.1,
+        default=0.05,
         min=0.0,
         max=0.5
     )

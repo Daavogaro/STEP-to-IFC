@@ -181,8 +181,7 @@ def merge_contained_meshes(obj):
 
             new_object.name = old_name
             new_object.parent = parent
-            parts = old_name.split(".")
-            new_object.data.name = ".".join(parts[:-1]) if len(parts) > 1 else old_name
+            new_object.data.name = old_name
             return  # FULL STOP: obj no longer exists!
         
         # If there are still non-mesh children, rename the new merged mesh as the parent
@@ -190,6 +189,7 @@ def merge_contained_meshes(obj):
            new_object = bpy.context.view_layer.objects.active
            parts = obj.name.split(".")
            new_object.name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
+           new_object.data.name = new_object.name
 
     # Continue recursion only into non-mesh objects
     for child in object_children:

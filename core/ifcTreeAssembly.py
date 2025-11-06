@@ -70,11 +70,13 @@ def addIfcElement(self,obj,meshes_names,classes_column,predefined_type_column,ob
     if not element_class == None:
         print("________________________________________________________________________")
         print(f"A new {element_class} for object: {obj.name}")
+        original_name=obj.name
         # This time we don't add a new IFC element, but we convert the mesh in an IfcElement
         bpy.ops.bim.assign_class(ifc_class=element_class)
         bpy.ops.object.select_all(action='DESELECT')
         new_ifc_element=bpy.context.view_layer.objects.active
         bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
+        new_ifc_element.BIMAttributeProperties.attributes[1].string_value = original_name # Edit the Name attribute
         if not element_predefined_type == None:
             new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = element_predefined_type # Edit the Predefined Type
             print(f"    And its predefined type is: {element_predefined_type}")
