@@ -62,13 +62,21 @@ def assign_pset(meshes_names,psets_columns):
             for pset in psets:
                 #is_applicable=psetTool.Pset.is_pset_applicable(ifc_obj,pset['name']) # If the Pset is applicable
                 #if is_applicable:
-                print(f"For the obj {ifc_obj.Name} the {pset['name']} is applicable")
-                ifc_pset=ifcTool.Ifc.run("pset.add_pset",product=ifc_obj,name=pset['name']) # Add the Pset
-                for property_name, property_value in pset['properties'].items(): # Assign all the Single Properties and Values
-                    print(f"{property_name}:{property_value}")
-                    ifcTool.Ifc.run("pset.edit_pset",pset=ifc_pset,properties={property_name:property_value})
-                #else: 
-                 #   print(f"The {pset['name']} is not applicable")
+                #print(f"For the obj {ifc_obj.Name} the {pset['name']} is applicable")
+                if pset['name'].startswith("Pset_"): # Check that the Pset name start with "Pset_"
+                    ifc_pset=ifcTool.Ifc.run("pset.add_pset",product=ifc_obj,name=pset['name']) # Add the Pset
+                    for property_name, property_value in pset['properties'].items(): # Assign all the Single Properties and Values
+                        print(f"{property_name}:{property_value}")
+                        ifcTool.Ifc.run("pset.edit_pset",pset=ifc_pset,properties={property_name:property_value})
+                    #else: 
+                     #   print(f"The {pset['name']} is not applicable")
+                if pset['name'].startswith("Qto_"):
+                    ifc_qto=ifcTool.Ifc.run("pset.add_qto",product=ifc_obj,name=pset['name']) # Add the Qto
+                    for property_name, property_value in pset['properties'].items(): # Assign all the Single Properties and Values
+                        print(f"{property_name}:{property_value}")
+                        ifcTool.Ifc.run("pset.edit_qto",qto=ifc_qto,properties={property_name:property_value})
     file.write(file_path) # Write the new data in the Ifc File 
     print(f"IFC file saved: {file_path}")
+    
+    import ifcopenshell
 

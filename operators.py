@@ -491,7 +491,7 @@ class PsetsAssign_Runscript(bpy.types.Operator):
                 if "Ifc Class" not in df.columns:
                     self.report({'ERROR'},"Error: The column 'Ifc Class' does not exist in the CSV file.")
                 levels = [col for col in df.columns if col.startswith('Level_')]
-                psets = [col for col in df.columns if col.startswith('Pset_')]
+                psets = [col for col in df.columns if col.startswith("Pset_") or col.startswith("Qto")]
                 if not levels:
                     self.report({'ERROR'},"Error: No column 'Level_...' found in CSV file.")
                 if not psets:
