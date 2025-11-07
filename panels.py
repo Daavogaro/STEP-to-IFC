@@ -8,12 +8,66 @@ class MyProperties(bpy.types.PropertyGroup):
         min=0.0,
         max=0.5
     )
+    location: bpy.props.BoolProperty(
+        name="Location",
+        default=True
+    )
+    rotation: bpy.props.BoolProperty(
+        name="Rotation",
+        default=True
+    )
+    scale: bpy.props.BoolProperty(
+        name="Scale",
+        default=True
+    )
+    apply_props: bpy.props.BoolProperty(
+        name="Apply Properties",
+        default=True
+    )
+
+class CustomPanel_ModelingSettings(bpy.types.Panel):
+    bl_label = "Modeling Settings" # Title of the panel
+    bl_idname = "Custom_panel_PT_ModelingSettings" # ID of the panel
+    bl_space_type = 'VIEW_3D' # Sidebar in 3D View
+    bl_region_type = 'UI' # Places it in the side panel
+    bl_category = "STEP-to-IFC" # New tab in the N-panel
+    def draw(self, context): # This function is mandatory and is to draw the panel in the UI
+        layout = self.layout # The layout is reffered to the layout of the panel that we are creating
+        obj = context.object # With this we can ensure that the layout (button, properties, etc...) that we want to add are shown only when an object is selected
+
+        if obj:
+            # Make meshes unique
+            row = layout.row(align=True)
+            row.label(text="Make meshes uniques")
+            row.operator("meshesunique.run_script", text="", icon="MESH_DATA")
+
+            # Apply transformations to non-mesh objects
+            layout.label(text="Apply transformations to non-mesh objects")
+
+            # Create a 2x2 grid for properties
+            row = layout.row(align=True)
+            
+            col_left = row.column(align=True)
+            col_left.prop(obj.my_properties, "location")
+            col_left.prop(obj.my_properties, "scale")
+            
+            col_right = row.column(align=True)
+            col_right.prop(obj.my_properties, "rotation")
+            col_right.prop(obj.my_properties, "apply_props")
+
+            # Operator button below
+            col = row.column(align=True)
+            col.separator(factor=1)
+            col.operator("transformation.notmesh", text="", icon="CHECKBOX_HLT")
+
+
+
 
 
 
 class CustomPanel_GeomAndTreeSempl(bpy.types.Panel):
     bl_label = "Geometry and tree assembly simplification" # Title of the panel
-    bl_idname = "Custom_panel_GeoAndTreeSempl" # ID of the panel
+    bl_idname = "Custom_panel_PT_GeoAndTreeSempl" # ID of the panel
     bl_space_type = 'VIEW_3D' # Sidebar in 3D View
     bl_region_type = 'UI' # Places it in the side panel
     bl_category = "STEP-to-IFC" # New tab in the N-panel
@@ -23,10 +77,7 @@ class CustomPanel_GeomAndTreeSempl(bpy.types.Panel):
 
         if obj:
             # If an object is selected then the layout is shown
-            # Create a row for making meshes uniques
-            row1 = layout.row(align=True)
-            row1.label(text="Make meshes uniques")
-            row1.operator("meshesunique.run_script", text="", icon="MESH_DATA")
+            
             # Create a row for deleting small objects
             row2 = layout.row(align=True)
             # Left side: label and float
@@ -68,7 +119,7 @@ class CustomPanel_GeomAndTreeSempl(bpy.types.Panel):
 # Panel for assign the IFC classes and Psets to meshes
 class CustomPanel_IFCAssgignment(bpy.types.Panel):
     bl_label = "Assign IFC classes and PSets"
-    bl_idname = "CustomPanel_IFCAssignment"
+    bl_idname = "CustomPanel_PT_IFCAssignment"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "STEP-to-IFC" # Using the same category, we put the panel in the same category of the panel before
@@ -101,12 +152,14 @@ class CustomPanel_IFCAssgignment(bpy.types.Panel):
 def register():
     bpy.utils.register_class(MyProperties)
     bpy.types.Object.my_properties = bpy.props.PointerProperty(type=MyProperties)
-
+    
+    bpy.utils.register_class(CustomPanel_ModelingSettings)
     bpy.utils.register_class(CustomPanel_GeomAndTreeSempl)
     bpy.utils.register_class(CustomPanel_IFCAssgignment)
 
 # This funciton is the contrary of the register functon. Is to tell Blender to close the classes that we have registered when we close the menu
 def unregister():
+    bpy.utils.unregister_class(CustomPanel_ModelingSettings)
     bpy.utils.unregister_class(CustomPanel_GeomAndTreeSempl)
     bpy.utils.unregister_class(CustomPanel_IFCAssgignment)
     del bpy.types.Object.my_properties

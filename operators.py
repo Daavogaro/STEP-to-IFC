@@ -14,6 +14,59 @@ from .core import ifcAssignPsets
 from .core import joinComplanarFaces_v1
 from .core import polygonReduction
 
+class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
+    bl_idname = "meshesunique.run_script"
+    bl_label = "Make meshes data uniques"
+    bl_description = "Some of the meshes' data could be duplicated. This could cause some issues with identification with excel file. For this reason is reccomanded to make meshes data unique with this command."        
+    def execute(self, context):
+        start_time = time.perf_counter()
+        if bpy.context.view_layer.objects.active:
+            active_obj = bpy.context.view_layer.objects.active
+            try:
+                renameMeshes.makeMeshesUniques(active_obj)
+                #importCSV.select_hierarchy_not_mesh(active_obj)
+                #bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.context.view_layer.objects.active = active_obj
+                active_obj.select_set(True)
+            except Exception as e:
+                self.report({'ERROR'}, f"Failed to make data uniques: {e}")
+                return {'CANCELLED'} # Cancel operation if there is an error
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Execution time: {elapsed_time:.6f} seconds")
+        else:
+            self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
+        self.report({'INFO'},"Meshes data made unique!")
+        return {'FINISHED'}
+    
+class ApplyTransformationToNotMeshes_Runscript(bpy.types.Operator):
+    bl_idname = "transformation.notmesh"
+    bl_label = "Apply transformations to non-mesh objects"
+    bl_description = "Apply transformations to all non-mesh objects in the hierarchy."
+    def execute(self, context):
+        start_time = time.perf_counter()
+        if bpy.context.view_layer.objects.active:
+            active_obj = bpy.context.view_layer.objects.active
+            try:
+                location = active_obj.my_properties.location
+                rotation = active_obj.my_properties.rotation
+                scale = active_obj.my_properties.scale
+                properties = active_obj.my_properties.apply_props
+                renameMeshes.applyTransformsToNonMesh(active_obj, location, rotation, scale, properties)
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.context.view_layer.objects.active = active_obj
+                active_obj.select_set(True)
+            except Exception as e:
+                self.report({'ERROR'}, f"Failed to transform data: {e}")
+                return {'CANCELLED'} # Cancel operation if there is an error
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Execution time: {elapsed_time:.6f} seconds")
+        else:
+            self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
+        self.report({'INFO'},"Transformations applied to non-mesh objects!")
+        return {'FINISHED'}
 
 class DeleteSmallElements_RunScript(bpy.types.Operator):
     bl_idname = "object.run_script" # ID of the script runned by the operator
@@ -50,33 +103,7 @@ class DeleteSmallElements_RunScript(bpy.types.Operator):
         self.report({'INFO'},"Small objects has been deleted!")
         return {'FINISHED'}
     
-class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
-    bl_idname = "meshesunique.run_script"
-    bl_label = "Make meshes data uniques"
-    bl_description = "Some of the meshes' data could be duplicated. This could cause some issues with identification with excel file. For this reason is reccomanded to make meshes data unique with this command."        
-    def execute(self, context):
-        start_time = time.perf_counter()
-        if bpy.context.view_layer.objects.active:
-            active_obj = bpy.context.view_layer.objects.active
-            try:
-                renameMeshes.makeMeshesUnique_and_ApplyNonMeshTransforms(active_obj)
 
-                importCSV.select_hierarchy_not_mesh(active_obj)
-                bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
-                bpy.ops.object.select_all(action='DESELECT')
-                bpy.context.view_layer.objects.active = active_obj
-                active_obj.select_set(True)
-            except Exception as e:
-                self.report({'ERROR'}, f"Failed to make data uniques: {e}")
-                return {'CANCELLED'} # Cancel operation if there is an error
-            self.report({'INFO'},"The CSV has been printed!")
-            end_time = time.perf_counter()
-            elapsed_time = end_time - start_time
-            print(f"Execution time: {elapsed_time:.6f} seconds")
-        else:
-            self.report({'ERROR_INVALID_INPUT'},"No active object selected.")
-        self.report({'INFO'},"Meshes data made unique!")
-        return {'FINISHED'}
 
 
 class CSVPrint_Runscript(bpy.types.Operator):
@@ -488,6 +515,7 @@ class PsetsAssign_Runscript(bpy.types.Operator):
 
 def register():
     bpy.utils.register_class(MakeMeshesDataUniques_Runscript)
+    bpy.utils.register_class(ApplyTransformationToNotMeshes_Runscript)
     bpy.utils.register_class(DeleteSmallElements_RunScript)
     bpy.utils.register_class(CSVPrint_Runscript)
     bpy.utils.register_class(CSVImport_Runscript)
@@ -502,6 +530,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(MakeMeshesDataUniques_Runscript)
+    bpy.utils.unregister_class(ApplyTransformationToNotMeshes_Runscript)
     bpy.utils.unregister_class(DeleteSmallElements_RunScript)
     bpy.utils.unregister_class(CSVPrint_Runscript)
     bpy.utils.unregister_class(CSVImport_Runscript)
