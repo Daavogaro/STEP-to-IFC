@@ -242,20 +242,11 @@ class CustomPanel_GroupingProperties(bpy.types.Panel):
 
             # Row for deleting objects based on the imported CSV
             row5 = layout.row(align=True)
-            row5.label(text="Delete objects")
-            row5.operator("database.simplify", text="", icon="TRASH")
-            # Row for simplify objects based on the imported CSV
-            # row6 = layout.row(align=True)
-            # row6.label(text="Simplify geometries")
-            # row6.operator("database.sds", text="", icon="MESH_CUBE")
-            # NEW Row for join complanar faces based on the imported CSV
-            row7 = layout.row(align=True)
-            row7.label(text="Join complanar faces")
-            row7.operator("joincomplanarfaces.run_script", text="", icon="MOD_TRIANGULATE")
-            # Row for regrouping objects based on the imported CSV
-           #row8 = layout.row(align=True)
-           #row8.label(text="Parse assemblies")
-           #row8.operator("database.regroup", text="", icon="OUTLINER")
+            row5.label(text="Simplify geometries")
+            row5.operator("database.simplify", text="", icon="PRESET")
+            row6 = layout.row(align=True)
+            row6.label(text="Join complanar faces")
+            row6.operator("joincomplanarfaces.run_script", text="", icon="MOD_TRIANGULATE")
 
         else:
             layout.label(text="No object selected")
