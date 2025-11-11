@@ -1,3 +1,4 @@
+from shapely import area
 import bpy
 import os
 import csv
@@ -526,7 +527,11 @@ class AssignGroupingProperties_Runscript(bpy.types.Operator):
                 for obj in selected_objects:
                     obj["JoinChildren"] = True
                     obj["LevelOfDetail"] = lod
-                    bpy.context.space_data.context = 'OBJECT'
+                    for area in bpy.context.screen.areas:
+                        if area.type == 'PROPERTIES':
+                            for space in area.spaces:
+                                if space.type == 'PROPERTIES':
+                                    space.context = 'OBJECT'
             else:
                 self.report({'ERROR'}, "No objects selected.")
                 return {'CANCELLED'}
@@ -591,6 +596,31 @@ class AutoGroupDatabase_Runscript(bpy.types.Operator):
             return {'CANCELLED'}
         return {'FINISHED'}
 
+class DatabaseSimplify_Runscript(bpy.types.Operator):
+    bl_idname = "database.simplify"
+    bl_label = "Database Simplify"
+    bl_description = "Simplify objects based on database entries"
+
+    def execute(self, context):
+        global database_path
+        if not database_path or not os.path.isdir(database_path):
+            self.report({'ERROR'}, "Database path is not set or invalid. Please set it first.")
+            return {'CANCELLED'}
+        active_obj = bpy.context.view_layer.objects.active
+        print(f"Database path set to: {database_path}")
+
+        try:
+            if active_obj:
+                database.find_completed_csv(active_obj, database_path)   
+                bpy.context.view_layer.objects.active = active_obj
+            else:
+                self.report({'ERROR'}, "No objects selected.")
+                return {'CANCELLED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"Error in database simplification: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(MakeMeshesDataUniques_Runscript)
     bpy.utils.register_class(ApplyTransformationToNotMeshes_Runscript)
@@ -608,6 +638,7 @@ def register():
     bpy.utils.register_class(AssignGroupingProperties_Runscript)
     bpy.utils.register_class(AssignGroupingPropertiesDatabasePath_Runscript)
     bpy.utils.register_class(AutoGroupDatabase_Runscript)
+    bpy.utils.register_class(DatabaseSimplify_Runscript)
 
 def unregister():
     bpy.utils.unregister_class(MakeMeshesDataUniques_Runscript)
@@ -626,3 +657,4 @@ def unregister():
     bpy.utils.unregister_class(AssignGroupingProperties_Runscript)
     bpy.utils.unregister_class(AssignGroupingPropertiesDatabasePath_Runscript)
     bpy.utils.unregister_class(AutoGroupDatabase_Runscript)
+    bpy.utils.unregister_class(DatabaseSimplify_Runscript)

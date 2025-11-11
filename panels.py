@@ -164,13 +164,62 @@ class CustomPanel_IFCAssgignment(bpy.types.Panel):
             # If an object is not selected then the layout is not shown, but only a label 
             layout.label(text="No object selected")
 
+# STEP-to-IFCv2 
+class CustomPanel_GeometriesSettings(bpy.types.Panel):
+    bl_label = "Geometries Settings" # Title of the panel
+    bl_idname = "Custom_panel_PT_GeometriesSettings" # ID of the panel
+    bl_space_type = 'VIEW_3D' # Sidebar in 3D View
+    bl_region_type = 'UI' # Places it in the side panel
+    bl_category = "STEP-to-IFCv2" # New tab in the N-panel
+    def draw(self, context): # This function is mandatory and is to draw the panel in the UI
+        layout = self.layout # The layout is reffered to the layout of the panel that we are creating
+        obj = context.object # With this we can ensure that the layout (button, properties, etc...) that we want to add are shown only when an object is selected
+
+        if obj:
+             # Make meshes unique
+            row = layout.row(align=True)
+            row.label(text="Make meshes uniques")
+            row.operator("meshesunique.run_script", text="", icon="MESH_DATA")
+
+            # Create a row for deleting small objects
+            row2 = layout.row(align=True)
+            # Left side: label and float
+            col_left = row2.column()
+            row_left = col_left.row(align=True)
+            row_left_split = row_left.split(factor=0.60)
+            row_left_split.label(text="Delete object smaller than:")
+            row_left_split.prop(obj.my_properties, "my_float", text="[m]")  # Add a float operator called "my_float" and contanined in the registered class "my_properties"
+            row2.operator("object.run_script", text="", icon="TRASH") # The operator has the bl_idname "object.run_script" and you can find it in the operators file
+
+           
+            # Apply transformations to non-mesh objects
+            layout.label(text="Apply transformations to non-mesh objects")
+
+            # Create a 2x2 grid for properties
+            row = layout.row(align=True)
+            
+            col_left = row.column(align=True)
+            col_left.prop(obj.my_properties, "location")
+            col_left.prop(obj.my_properties, "scale")
+            
+            col_right = row.column(align=True)
+            col_right.prop(obj.my_properties, "rotation")
+            col_right.prop(obj.my_properties, "apply_props")
+
+            # Operator button below
+            col = row.column(align=True)
+            col.separator(factor=1)
+            col.operator("transformation.notmesh", text="", icon="CHECKBOX_HLT")
+        else:
+            # If an object is not selected then the layout is not shown, but only a label 
+            layout.label(text="No object selected")
 
 class CustomPanel_GroupingProperties(bpy.types.Panel):
     bl_label = "Assign Properties to group elements"
     bl_idname = "CustomPanel_PT_GroupingProperties"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "STEP-to-IFC" # Using the same category, we put the panel in the same category of the panel before
+    bl_category = "STEP-to-IFCv2" # Using the same category, we put the panel in the same category of the panel before
 
     def draw(self, context):
         layout = self.layout
@@ -190,6 +239,24 @@ class CustomPanel_GroupingProperties(bpy.types.Panel):
             row4 = layout.row(align=True)
             row4.label(text="Autogroup elements based on DB")
             row4.operator("database.autofill", text="", icon="INTERNET")
+
+            # Row for deleting objects based on the imported CSV
+            row5 = layout.row(align=True)
+            row5.label(text="Delete objects")
+            row5.operator("database.simplify", text="", icon="TRASH")
+            # Row for simplify objects based on the imported CSV
+            # row6 = layout.row(align=True)
+            # row6.label(text="Simplify geometries")
+            # row6.operator("database.sds", text="", icon="MESH_CUBE")
+            # NEW Row for join complanar faces based on the imported CSV
+            row7 = layout.row(align=True)
+            row7.label(text="Join complanar faces")
+            row7.operator("joincomplanarfaces.run_script", text="", icon="MOD_TRIANGULATE")
+            # Row for regrouping objects based on the imported CSV
+           #row8 = layout.row(align=True)
+           #row8.label(text="Parse assemblies")
+           #row8.operator("database.regroup", text="", icon="OUTLINER")
+
         else:
             layout.label(text="No object selected")
 
@@ -201,12 +268,14 @@ def register():
     bpy.utils.register_class(CustomPanel_ModelingSettings)
     bpy.utils.register_class(CustomPanel_GeomAndTreeSempl)
     bpy.utils.register_class(CustomPanel_IFCAssgignment)
+    bpy.utils.register_class(CustomPanel_GeometriesSettings)
     bpy.utils.register_class(CustomPanel_GroupingProperties)
 # This funciton is the contrary of the register functon. Is to tell Blender to close the classes that we have registered when we close the menu
 def unregister():
     bpy.utils.unregister_class(CustomPanel_ModelingSettings)
     bpy.utils.unregister_class(CustomPanel_GeomAndTreeSempl)
     bpy.utils.unregister_class(CustomPanel_IFCAssgignment)
+    bpy.utils.unregister_class(CustomPanel_GeometriesSettings)
     bpy.utils.unregister_class(CustomPanel_GroupingProperties)
     del bpy.types.Object.my_properties
     bpy.utils.unregister_class(MyProperties)
