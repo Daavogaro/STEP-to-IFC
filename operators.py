@@ -13,6 +13,7 @@ from .core import ifcTreeAssembly
 from .core import ifcAssignPsets
 from .core import joinComplanarFaces_v1
 from .core import polygonReduction
+from .core import database
 
 class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
     bl_idname = "meshesunique.run_script"
@@ -512,6 +513,83 @@ class PsetsAssign_Runscript(bpy.types.Operator):
             return {'CANCELLED'}
         return {'FINISHED'}
 
+class AssignGroupingProperties_Runscript(bpy.types.Operator):
+    bl_idname = "groupingproperties.assign"
+    bl_label = "Assign Grouping Properties"
+    bl_description = "Assign grouping properties based on the CSV"
+
+    def execute(self, context):
+        selected_objects = bpy.context.selected_objects
+        lod = context.object.my_properties.level_of_detail
+        try:
+            if selected_objects:
+                for obj in selected_objects:
+                    obj["JoinChildren"] = True
+                    obj["LevelOfDetail"] = lod
+                    bpy.context.space_data.context = 'OBJECT'
+            else:
+                self.report({'ERROR'}, "No objects selected.")
+                return {'CANCELLED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"Error in assigning grouping properties: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+    
+database_path=""  # Global variable to store the database path
+
+class AssignGroupingPropertiesDatabasePath_Runscript(bpy.types.Operator):
+    bl_idname = "groupingproperties.databasepath"
+    bl_label = "Set Database Path"
+    bl_description = "Set the database path for grouping properties"
+    
+    def execute(self, context):
+        global database_path
+        database_path = context.object.my_properties.database_path  # Property for selecting a directory where the database is located
+        print(f"Database path set to: {database_path}")
+        if not database_path:
+            self.report({'ERROR'}, "No database path selected")
+            return {'CANCELLED'}
+        try:
+            for folder in ["Completed", "To be completed"]:
+                folder_path = os.path.join(database_path, folder)
+                os.makedirs(folder_path, exist_ok=True)
+            active_obj = bpy.context.view_layer.objects.active
+            if active_obj:
+                database.create_or_find_csv(active_obj, database_path)
+                bpy.context.view_layer.objects.active = active_obj
+            else:
+                print("No active object selected")
+        except Exception as e:
+            self.report({'ERROR'}, f"Error in setting database path: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+class AutoGroupDatabase_Runscript(bpy.types.Operator):
+    bl_idname = "database.autofill"
+    bl_label = "Auto Group"
+    bl_description = "Automatically group objects based on properties"
+      
+
+
+    def execute(self, context):
+        global database_path
+        if not database_path or not os.path.isdir(database_path):
+            self.report({'ERROR'}, "Database path is not set or invalid. Please set it first.")
+            return {'CANCELLED'}
+
+        print(f"Database path set to: {database_path}")
+        objects = bpy.data.objects
+        try:
+            if objects:
+                for obj in objects:
+                    database.control_database(obj, database_path)
+            else:
+                self.report({'ERROR'}, "No objects selected.")
+                return {'CANCELLED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"Error in auto grouping: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
 
 def register():
     bpy.utils.register_class(MakeMeshesDataUniques_Runscript)
@@ -527,6 +605,9 @@ def register():
     bpy.utils.register_class(IFCCSVLoad_Runscript)
     bpy.utils.register_class(IFCAssign_Runscript)
     bpy.utils.register_class(PsetsAssign_Runscript)
+    bpy.utils.register_class(AssignGroupingProperties_Runscript)
+    bpy.utils.register_class(AssignGroupingPropertiesDatabasePath_Runscript)
+    bpy.utils.register_class(AutoGroupDatabase_Runscript)
 
 def unregister():
     bpy.utils.unregister_class(MakeMeshesDataUniques_Runscript)
@@ -542,3 +623,6 @@ def unregister():
     bpy.utils.unregister_class(IFCCSVLoad_Runscript)
     bpy.utils.unregister_class(IFCAssign_Runscript)
     bpy.utils.unregister_class(PsetsAssign_Runscript)
+    bpy.utils.unregister_class(AssignGroupingProperties_Runscript)
+    bpy.utils.unregister_class(AssignGroupingPropertiesDatabasePath_Runscript)
+    bpy.utils.unregister_class(AutoGroupDatabase_Runscript)

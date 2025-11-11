@@ -24,7 +24,23 @@ class MyProperties(bpy.types.PropertyGroup):
         name="Apply Properties",
         default=True
     )
+    level_of_detail:bpy.props.EnumProperty(
+        name="level_of_detail",
+        description="Select the level of detail for merging meshes",
+        items=[
+            ('LOW', "Low", "All the non deleted geometries will be cubified"),
+            ('MEDIUM', "Medium", "All the desired non deleted geometries will be simplified"),
+            ('HIGH', "High", "No elements will be deleted or cubified"),
+        ],
+        default='MEDIUM'
+    )
 
+    database_path: bpy.props.StringProperty(
+        default="C:\\Users\\avogar_d\\Desktop\\STEP-to-IFC_v2\\Girder\\Database",
+        subtype='DIR_PATH',
+        description="Path to the database folder containing the CSV files",
+    )
+    
 class CustomPanel_ModelingSettings(bpy.types.Panel):
     bl_label = "Modeling Settings" # Title of the panel
     bl_idname = "Custom_panel_PT_ModelingSettings" # ID of the panel
@@ -59,7 +75,9 @@ class CustomPanel_ModelingSettings(bpy.types.Panel):
             col = row.column(align=True)
             col.separator(factor=1)
             col.operator("transformation.notmesh", text="", icon="CHECKBOX_HLT")
-
+        else:
+            # If an object is not selected then the layout is not shown, but only a label 
+            layout.label(text="No object selected")
 
 
 
@@ -147,6 +165,33 @@ class CustomPanel_IFCAssgignment(bpy.types.Panel):
             layout.label(text="No object selected")
 
 
+class CustomPanel_GroupingProperties(bpy.types.Panel):
+    bl_label = "Assign Properties to group elements"
+    bl_idname = "CustomPanel_PT_GroupingProperties"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "STEP-to-IFC" # Using the same category, we put the panel in the same category of the panel before
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object # With this we can ensure that the layout (button, properties, etc...) that we want to add are shown only when an object is selected
+
+        if obj:
+            row0 = layout.row(align=True)
+            row0.label(text="Join all its children meshes")
+            row1 = layout.row(align=True)
+            row1.prop(obj.my_properties, "level_of_detail",text="")
+            row1.operator("groupingproperties.assign", text="", icon="SELECT_EXTEND")
+            row2 = layout.row(align=True)
+            row2.label(text="Database folder path:")
+            row3 = layout.row(align=True)
+            row3.prop(obj.my_properties, "database_path",text="")
+            row3.operator("groupingproperties.databasepath", text="", icon="CHECKMARK")
+            row4 = layout.row(align=True)
+            row4.label(text="Autogroup elements based on DB")
+            row4.operator("database.autofill", text="", icon="INTERNET")
+        else:
+            layout.label(text="No object selected")
 
 # This function is to register classes in Blender. We make Blender know that this class esist and it's necessary to show them
 def register():
@@ -156,12 +201,13 @@ def register():
     bpy.utils.register_class(CustomPanel_ModelingSettings)
     bpy.utils.register_class(CustomPanel_GeomAndTreeSempl)
     bpy.utils.register_class(CustomPanel_IFCAssgignment)
-
+    bpy.utils.register_class(CustomPanel_GroupingProperties)
 # This funciton is the contrary of the register functon. Is to tell Blender to close the classes that we have registered when we close the menu
 def unregister():
     bpy.utils.unregister_class(CustomPanel_ModelingSettings)
     bpy.utils.unregister_class(CustomPanel_GeomAndTreeSempl)
     bpy.utils.unregister_class(CustomPanel_IFCAssgignment)
+    bpy.utils.unregister_class(CustomPanel_GroupingProperties)
     del bpy.types.Object.my_properties
     bpy.utils.unregister_class(MyProperties)
 
