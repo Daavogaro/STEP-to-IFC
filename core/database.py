@@ -3,33 +3,52 @@ import csv
 import pandas as pd  # Library for handling CSV files
 import bpy
 from mathutils import Vector
+from . import importCSV
+from . import deleteSmallElements
 
-# Function to get only leaf objects (objects without children)
-def get_leaf_objects(obj, hierarchy=None,max_levels=20):
-    """
-    Returns a list of lists. Each sublist represents a leaf object with its hierarchy.
-    hierarchy: list of names from root down to parent
-    """
-    if hierarchy is None:
-        hierarchy = []
+def get_objects(obj, written_names=None,csv_changed=False):
+    
+    if written_names is None:
+        written_names = set()
 
-    # Current path including this object
-    current_path = hierarchy + [obj.name]
+    # Clean and normalize name
+    old_name = obj.name
+    obj.name = old_name.replace("/", "_")
+    parts = obj.name.split(".")
+    base_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
 
-    # If the object has no children, it's a leaf — return its path
-    if not obj.children:
-        return [current_path]
-    if obj.get("JoinChildren", False) is True and not obj==bpy.context.view_layer.objects.active:
-        padded = current_path + [""] * (max_levels - len(current_path))
-        row = padded+["Yes","","","",""]
-        return [row]
-    # Otherwise, recursively process children
+    level = obj.get("LevelOfDetail", None)
     rows = []
-    for child in obj.children:
-        rows.extend(get_leaf_objects(child, current_path))
-    return rows
 
-def create_or_find_csv(obj,database_path):
+    # --- LEAF CASE ---
+    if not obj.children:
+        if base_name not in written_names:
+            written_names.add(base_name)
+            csv_changed=True
+            rows.append([base_name])
+        return rows, csv_changed 
+
+    # --- JOINED CHILDREN CASE ---
+    if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active:
+        print(f"The active obj is {bpy.context.view_layer.objects.active.name} and the object is {obj.name}")
+        if base_name not in written_names:
+            row = [base_name, "Yes", level,"","" if level else ""]
+            rows.append(row)
+            csv_changed=True
+            written_names.add(base_name)
+        return rows,csv_changed
+
+    # --- RECURSION CASE ---
+    for child in obj.children:
+        child_rows, child_changed = get_objects(child, written_names, csv_changed)
+        rows.extend(child_rows)
+        if child_changed:
+            csv_changed = True
+
+    return rows,csv_changed
+
+
+def create_or_find_csv(obj, database_path):
     if "/" in obj.name:
         old_name = obj.name
         obj.name = old_name.replace("/","_")
@@ -42,23 +61,42 @@ def create_or_find_csv(obj,database_path):
 
         if os.path.exists(completed_file_path):
             print(f"Already completed: {completed_file_path}")
+            df = pd.read_csv(completed_file_path,encoding="utf-8",sep=";",engine="python")
+            old_rows = df.values.tolist()  # Converts all existing CSV rows to list of lists
+            old_rows = df.fillna("").values.tolist()  # Replace NaN with empty string
+            if "Element Name" not in df.columns:
+                print(f"{completed_file_path} has not Element Name column")
+                return
+            element_names = df["Element Name"].dropna().astype(str).tolist()
+            bpy.context.view_layer.objects.active=obj
+            rows, csv_changed = get_objects(obj,set(element_names))
+            if csv_changed is True:
+                print(obj.name)
+                with open(to_be_completed_file_path, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file, delimiter=';')
+                    all_rows = old_rows + rows
+                    # Header
+                    writer.writerow(
+                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified",]
+                    )
+                    writer.writerows(all_rows)
+            
         else:
             if not os.path.exists(to_be_completed_file_path):
                 
-                with open(to_be_completed_file_path, 'w', newline='') as file:
-                    writer = csv.writer(file)
+                 with open(to_be_completed_file_path, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file, delimiter=';')
                     bpy.context.view_layer.objects.active=obj
                     # Header
                     writer.writerow(
-                        ["Level_" + str(i) for i in range(20)] +
-                        ["Product in DB","LOW: To be deleted","LOW: To be simplified","MID: To be deleted","MID: To be simplified"]
+                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified",]
                     )
 
                     # Data rows
-                    rows = get_leaf_objects(obj)
+                    rows, csv_changed = get_objects(obj)
                     writer.writerows(rows)
             else:
-                print(f"CSV exists: {to_be_completed_file_path}")
+                print(f"____________________________________________")
 
     # ✅ ALWAYS go through children — even if current object didn’t match
     for child in obj.children:
@@ -77,45 +115,6 @@ def control_database(obj,database_path):
                 obj["JoinChildren"]=True    
 
 
-def create_bbox(obj):
-    # Store original names
-    original_mesh_name = obj.data.name
-    original_object_name = obj.name
-    # Change the name of the object (in this way we can apply the original name when we recreate the object)
-    obj.data.name = f"{original_mesh_name}_old"
-    obj.name = f"{original_object_name}_old"
-    # Get world-space bounding box corners
-    bbox_corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
-
-    # Define the 8 vertices of the box
-    verts = bbox_corners
-
-    # Define the faces using the vertex indices
-    faces = [
-        (0, 1, 2, 3),  # Bottom
-        (4, 5, 6, 7),  # Top
-        (0, 1, 5, 4),  # Front
-        (2, 3, 7, 6),  # Back
-        (1, 2, 6, 5),  # Right
-        (0, 3, 7, 4)   # Left
-    ]
-
-    # Create a new mesh and object
-    mesh_data = bpy.data.meshes.new(original_mesh_name)
-    mesh_data.from_pydata(verts, [], faces)
-    mesh_data.update()
-
-    bbox_obj = bpy.data.objects.new(original_object_name, mesh_data)
-    bbox_obj.parent = obj.parent
-     # Link the new cube to the same collection as the original object
-    for collection in obj.users_collection:
-        collection.objects.link(bbox_obj)
-    # Copy materials from the original object
-    if obj.material_slots:
-        for material_slot in obj.material_slots:
-            bbox_obj.data.materials.append(material_slot.material)
-    # Maintain hierarchy by assigning the same parent
-    print(f"Bounding box mesh created for '{original_object_name}'.")
 
 
 def find_meshes_inside(obj, array=None):
@@ -141,39 +140,25 @@ def find_meshes_inside(obj, array=None):
 
     return array
 
-def hideLeafWithNoMesh(obj):
-    children = list(obj.children) # A list of all children of obj
-    if not children and not obj.type == 'MESH' and not obj.type == 'MATERIAL': # If there are no children and is not a mesh and is not a material the object is hidden
-        obj.hide_set(True)
-    for child in children: # This function is iterate for the children of each child until there are no more children left
-        hideLeafWithNoMesh(child)
-# If a parent in the tree has all the children that are hidden, the function hide the father.
-def hideParentsWithHiddenChildren(obj):
-    children = list(obj.children) # A list of all children of obj
-    if not children: # If has no children it means that it is a mesh or a material
-        return
-    all_children_hidden = True # Assume that all children of "obj" are hidden
-    for child in children:
-        hideParentsWithHiddenChildren(child) # This function is iterate for the children of each child until there are no more children left
-        if not child.hide_get(): # If at least a child is not hidden, the assumption done before is wrong
-            all_children_hidden = False
-    if all_children_hidden: # But if all children are hidden (so the assumption done before is correct), hide the father
-        obj.hide_set(True)
 
-# This function delete all the hidden objects
-def delete_hidden_elements(obj):
-    children = list(obj.children) # A list of all children of obj
-    
-    # Vengono eliminati ricorsivamente gli elementi nascosti
-    for child in children: # This function is iterate for the children of each child until there are no more children left
-        delete_hidden_elements(child)
-        if child.hide_get(): # If a child is hidden, then remove from the scene
-            print(f"Deleting hidden object: {child.name}")
-            bpy.data.objects.remove(child, do_unlink=True)            
-            
+def find_children_meshes(obj, meshes=None):
+    if meshes is None:
+        meshes = []
+    for child in obj.children:
+        if child.get("JoinChildren", False):
+            continue  
+        if child.type == "MESH":
+            meshes.append(child)
+        find_children_meshes(child, meshes)
+    return meshes
+
+def select_hierarchy(obj):
+    obj.select_set(True)
+    for child in obj.children:
+        select_hierarchy(child)
+
 
 def find_completed_csv(obj,database_path):
-    print("_______________________________________________________________")
     completed_folder_path = os.path.join(database_path, "Completed")
     # Replace "/" in object name
     obj.name = obj.name.replace("/", "_")
@@ -184,60 +169,70 @@ def find_completed_csv(obj,database_path):
     
     if os.path.exists(file_path):
         df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
+        # FOR PRODUCTS IN THE DB
         if "Product in DB" not in df.columns:
             return
         df_filtered = df[df["Product in DB"] == "Yes"]
-        
-        columns = [col for col in df.columns if col.startswith('Level_')]
-        if not columns:
-            return
-        last_values = df_filtered[columns].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1)
-        for value in last_values:
-            if value and isinstance(value, str):  # Ensure it's a valid string
-                value = value.replace("/", "_").strip()  # sanitize
-                grouped_obj = bpy.data.objects.get(value)
-                if grouped_obj is not None:
-                    print(f"{grouped_obj.name} is a grouped object")
-                    find_completed_csv(grouped_obj,database_path)
-                    
-                
-        if "MID: To be deleted" not in df.columns:
+        element_names = df_filtered["Element Name"].dropna().astype(str).tolist()
+        bpy.ops.object.select_all(action='DESELECT')
+        select_hierarchy(obj)
+        objects = bpy.context.selected_objects
+        bpy.ops.object.select_all(action='DESELECT')
+        object_to_iterate=[]
+        for object in objects:
+            object.name = object.name.replace("/", "_")
+            parts = object.name.split(".")
+            file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
+            for element_name in element_names:
+                if file_name == element_name:
+                    object_to_iterate.append(object)
+        if len(object_to_iterate)>0:
+#            print(f"Elements name are {object_to_iterate}")
+            for o in object_to_iterate:
+                find_completed_csv(o,database_path)
+        # FOR ELEMENT NOT IN DB
+        if "To be deleted" not in df.columns:
             return        
-        df_del_filtered = df[df["MID: To be deleted"] == "Yes"]
+        df_del_filtered = df[df["To be deleted"] == "Yes"]
         if "MID: To be simplified" not in df.columns:
             return        
         df_sim_filtered = df[df["MID: To be simplified"] == "Yes"]
-        last_del_values = df_del_filtered[columns].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1)
-        last_sim_values = df_sim_filtered[columns].apply(lambda row: row.dropna().iloc[-1] if not row.dropna().empty else None, axis=1)
-        bpy.context.view_layer.objects.active = obj
-        
-        meshes=find_meshes_inside(obj)
-
-        print(f"{len(meshes)} meshes, {len(last_del_values)} object to delete and {len(last_sim_values)} object to simplify")
-        row_del_numbers = last_del_values.index.tolist()
-        row_sim_numbers = last_sim_values.index.tolist()
-        if obj.get("LevelOfDetail", False) == "LOW" or obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH":
-            for number in row_del_numbers:
-                bpy.data.objects.remove(meshes[number], do_unlink=True)
-                meshes[number]=None
-            
-        if obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH" :
-            for number in row_sim_numbers:
-                create_bbox(meshes[number])
-                bpy.data.objects.remove(meshes[number], do_unlink=True)
-                meshes[number]=None
-        if obj.get("LevelOfDetail", False) == "LOW":
-            print("Basso")
-            for mesh in meshes:
-                if not mesh is None:
-                    create_bbox(mesh)
-                    bpy.data.objects.remove(mesh, do_unlink=True)
-        meshes=find_meshes_inside(obj)
+        meshes=find_children_meshes(obj)
+        print(f"For the object {obj.name} there are {len(meshes)} mesehes to process")
+        to_delete=df_del_filtered["Element Name"].dropna().astype(str).tolist()
+        to_simplify=df_sim_filtered["Element Name"].dropna().astype(str).tolist()
+        new_meshes=[]
         for mesh in meshes:
-            mesh.parent= obj
-        hideLeafWithNoMesh(obj)
-        hideParentsWithHiddenChildren(obj)
-        delete_hidden_elements(obj)
+            parts = mesh.name.split(".")
+            file_name = ".".join(parts[:-1]) if len(parts) > 1 else mesh.name
+            if obj.get("LevelOfDetail", False) == "LOW":
+                if file_name in to_delete:
+                    bpy.data.objects.remove(mesh, do_unlink=True)
+                else:
+                    bbox=importCSV.create_bbox(mesh)
+                    new_meshes.append(bbox)
+                    bpy.data.objects.remove(mesh, do_unlink=True)
+                continue
+            if obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH" :
+                if file_name in to_delete:
+                    bpy.data.objects.remove(mesh, do_unlink=True)
+                else:
+                    if file_name in to_simplify:
+                        bbox=importCSV.create_bbox(mesh)
+                        new_meshes.append(bbox)
+                        bpy.data.objects.remove(mesh, do_unlink=True)
+                    else:
+                        new_meshes.append(mesh)
+                continue     
+            if obj.get("LevelOfDetail", False) == "HIGH":
+                new_meshes.append(mesh)
+                continue
+
+        for mesh in new_meshes:    
+            mesh.parent=obj        
+        deleteSmallElements.hideLeafWithNoMesh(obj)
+        deleteSmallElements.hideParentsWithHiddenChildren(obj)
+        deleteSmallElements.delete_hidden_elements(obj)
         meshes_to_join=[]
         for child in obj.children:
             if child.type == 'MESH':
@@ -269,6 +264,6 @@ def find_completed_csv(obj,database_path):
         else:
             meshes_to_join=[]
             return
-                
+
     else:
         print(f"No CSV found for '{obj.name}' at {file_path}")

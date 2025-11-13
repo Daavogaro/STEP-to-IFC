@@ -5,7 +5,6 @@ import csv
 import pandas as pd
 import time
 
-
 from .core import deleteSmallElements
 from .core import exportCSVComponentsTree
 from .core import importCSV
@@ -611,6 +610,7 @@ class DatabaseSimplify_Runscript(bpy.types.Operator):
 
         try:
             if active_obj:
+                print("_______________________________________________________________")  
                 database.find_completed_csv(active_obj, database_path)   
                 bpy.context.view_layer.objects.active = active_obj
             else:

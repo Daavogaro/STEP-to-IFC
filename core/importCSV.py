@@ -72,7 +72,7 @@ def create_bbox(obj):
             bbox_obj.data.materials.append(material_slot.material)
     # Maintain hierarchy by assigning the same parent
     print(f"Bounding box mesh created for '{original_object_name}'.")
-
+    return bbox_obj
 
 
 # Function to replace objects with a simplified cube based on the CSV file
