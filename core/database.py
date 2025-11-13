@@ -25,7 +25,11 @@ def get_objects(obj, written_names=None,csv_changed=False):
         if base_name not in written_names:
             written_names.add(base_name)
             csv_changed=True
-            rows.append([base_name])
+            if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active:
+                row = [base_name, "Yes", level,"","" if level else ""]
+                rows.append(row)
+            else:
+                rows.append([base_name])
         return rows, csv_changed 
 
     # --- JOINED CHILDREN CASE ---
@@ -157,7 +161,6 @@ def select_hierarchy(obj):
     for child in obj.children:
         select_hierarchy(child)
 
-
 def find_completed_csv(obj,database_path):
     completed_folder_path = os.path.join(database_path, "Completed")
     # Replace "/" in object name
@@ -197,73 +200,95 @@ def find_completed_csv(obj,database_path):
         if "MID: To be simplified" not in df.columns:
             return        
         df_sim_filtered = df[df["MID: To be simplified"] == "Yes"]
-        meshes=find_children_meshes(obj)
-        print(f"For the object {obj.name} there are {len(meshes)} mesehes to process")
-        to_delete=df_del_filtered["Element Name"].dropna().astype(str).tolist()
-        to_simplify=df_sim_filtered["Element Name"].dropna().astype(str).tolist()
-        new_meshes=[]
-        for mesh in meshes:
-            parts = mesh.name.split(".")
-            file_name = ".".join(parts[:-1]) if len(parts) > 1 else mesh.name
+        if obj.type == "MESH":
             if obj.get("LevelOfDetail", False) == "LOW":
-                if file_name in to_delete:
-                    bpy.data.objects.remove(mesh, do_unlink=True)
-                else:
-                    bbox=importCSV.create_bbox(mesh)
-                    new_meshes.append(bbox)
-                    bpy.data.objects.remove(mesh, do_unlink=True)
-                continue
+                bbox=importCSV.create_bbox(obj)
+                level = obj.get("LevelOfDetail", None)
+                if level is not None:
+                    bbox["LevelOfDetail"] = level
+                bbox["JoinChildren"]=True
+                bpy.data.objects.remove(obj, do_unlink=True)
             if obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH" :
-                if file_name in to_delete:
-                    bpy.data.objects.remove(mesh, do_unlink=True)
-                else:
-                    if file_name in to_simplify:
+                parts = obj.name.split(".")
+                file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
+                to_simplify=df_sim_filtered["Element Name"].dropna().astype(str).tolist()
+                if file_name in to_simplify:
+                    bbox=importCSV.create_bbox(obj)
+                    level = obj.get("LevelOfDetail", None)
+                    if level is not None:
+                        bbox["LevelOfDetail"] = level
+                    bbox["JoinChildren"]=True
+                    bpy.data.objects.remove(obj, do_unlink=True)
+        else:
+            meshes=find_children_meshes(obj)
+            print(f"For the object {obj.name} there are {len(meshes)} mesehes to process")
+            to_delete=df_del_filtered["Element Name"].dropna().astype(str).tolist()
+            to_simplify=df_sim_filtered["Element Name"].dropna().astype(str).tolist()
+            new_meshes=[]
+            for mesh in meshes:
+                parts = mesh.name.split(".")
+                file_name = ".".join(parts[:-1]) if len(parts) > 1 else mesh.name
+                if obj.get("LevelOfDetail", False) == "LOW":
+                    if file_name in to_delete:
+                        bpy.data.objects.remove(mesh, do_unlink=True)
+                    else:
                         bbox=importCSV.create_bbox(mesh)
                         new_meshes.append(bbox)
                         bpy.data.objects.remove(mesh, do_unlink=True)
+                    continue
+                if obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH" :
+                    if file_name in to_delete:
+                        bpy.data.objects.remove(mesh, do_unlink=True)
                     else:
-                        new_meshes.append(mesh)
-                continue     
-            if obj.get("LevelOfDetail", False) == "HIGH":
-                new_meshes.append(mesh)
-                continue
+                        if file_name in to_simplify:
+                            bbox=importCSV.create_bbox(mesh)
+                            new_meshes.append(bbox)
+                            bpy.data.objects.remove(mesh, do_unlink=True)
+                        else:
+                            new_meshes.append(mesh)
+                    continue     
+                if obj.get("LevelOfDetail", False) == "HIGH":
+                    new_meshes.append(mesh)
+                    continue
 
-        for mesh in new_meshes:    
-            mesh.parent=obj        
-        deleteSmallElements.hideLeafWithNoMesh(obj)
-        deleteSmallElements.hideParentsWithHiddenChildren(obj)
-        deleteSmallElements.delete_hidden_elements(obj)
-        meshes_to_join=[]
-        for child in obj.children:
-            if child.type == 'MESH':
-                meshes_to_join.append(child)
-        bpy.ops.object.select_all(action='DESELECT')
-        if len(meshes_to_join)>0:
-            bpy.context.view_layer.objects.active = meshes_to_join[0]
-            for mesh in meshes_to_join:
-                mesh.select_set(True)
+            for mesh in new_meshes:    
+                mesh.parent=obj        
+            deleteSmallElements.hideLeafWithNoMesh(obj)
+            deleteSmallElements.hideParentsWithHiddenChildren(obj)
+            deleteSmallElements.delete_hidden_elements(obj)
             meshes_to_join=[]
-            for area in bpy.context.window.screen.areas:
-                if area.type == 'VIEW_3D':
-                    with bpy.context.temp_override(area=area):
-                        bpy.ops.object.join()
-                    break
-        
-            joined_obj=bpy.context.view_layer.objects.active
-            parent = obj.parent
-            old_name = obj.name
-            level = obj.get("LevelOfDetail", None)
-            if level is not None:
-                joined_obj["LevelOfDetail"] = level
-            bpy.data.objects.remove(obj, do_unlink=True)
+            for child in obj.children:
+                if child.get("JoinChildren", False) is True:
+                    continue
+                if child.type == 'MESH':
+                    meshes_to_join.append(child)
+            bpy.ops.object.select_all(action='DESELECT')
+            if len(meshes_to_join)>0:
+                bpy.context.view_layer.objects.active = meshes_to_join[0]
+                for mesh in meshes_to_join:
+                    mesh.select_set(True)
+                meshes_to_join=[]
+                for area in bpy.context.window.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        with bpy.context.temp_override(area=area):
+                            bpy.ops.object.join()
+                        break
+            
+                joined_obj=bpy.context.view_layer.objects.active
+                parent = obj.parent
+                old_name = obj.name
+                level = obj.get("LevelOfDetail", None)
+                if level is not None:
+                    joined_obj["LevelOfDetail"] = level
+                bpy.data.objects.remove(obj, do_unlink=True)
 
-            joined_obj.name = old_name
-            joined_obj.parent = parent
-            joined_obj.data.name = old_name
-            joined_obj["JoinChildren"]=True
-        else:
-            meshes_to_join=[]
-            return
+                joined_obj.name = old_name
+                joined_obj.parent = parent
+                joined_obj.data.name = old_name
+                joined_obj["JoinChildren"]=True
+            else:
+                meshes_to_join=[]
+                return
 
     else:
         print(f"No CSV found for '{obj.name}' at {file_path}")
