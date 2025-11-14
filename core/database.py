@@ -274,18 +274,38 @@ def find_completed_csv(obj,database_path):
                             bpy.ops.object.join()
                         break
             
-                joined_obj=bpy.context.view_layer.objects.active
-                parent = obj.parent
+                joined_obj=bpy.context.view_layer.objects.active           
                 old_name = obj.name
                 level = obj.get("LevelOfDetail", None)
                 if level is not None:
                     joined_obj["LevelOfDetail"] = level
-                bpy.data.objects.remove(obj, do_unlink=True)
+                parent = obj.parent
+                if parent is not None:
+                    joined_obj.parent = parent
+                    bpy.data.objects.remove(obj, do_unlink=True)
+                    joined_obj.name = old_name
+                    joined_obj.data.name = old_name
+                    joined_obj["JoinChildren"]=True
+                else:
+                    print(f"{obj} has not a father")
+                    children = obj.children
+                    new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data)
+                    new_obj.matrix_world =joined_obj.matrix_world.copy()
+                    for collection in obj.users_collection:
+                        collection.objects.link(new_obj)
+                     
+                    for child in children:
+                        child_matrix = child.matrix_world.copy()
+                        child.parent = new_obj
+                        child.matrix_world = child_matrix 
 
-                joined_obj.name = old_name
-                joined_obj.parent = parent
-                joined_obj.data.name = old_name
-                joined_obj["JoinChildren"]=True
+                    bpy.data.objects.remove(joined_obj, do_unlink=True)
+                    bpy.data.objects.remove(obj, do_unlink=True)
+                    new_obj.name = old_name
+                    new_obj.data.name = old_name
+                    new_obj["JoinChildren"]=True
+                    if level is not None:
+                        new_obj["LevelOfDetail"] = level
             else:
                 meshes_to_join=[]
                 return
