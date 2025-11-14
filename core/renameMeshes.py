@@ -16,7 +16,7 @@ def applyTransformsToNonMesh(obj, location, rotation, scale, properties):
 # This function copy the mesh data when has multiple data users. In this way each mesh will be unique, and is possible to 
 # perform operations as transformations, etc... without having system errors
 def makeMeshesUniques(obj,array=[]):
-    obj.name = obj.name.replace("/", "_")
+    obj.name = obj.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
     for child in obj.children:
         if child.type == 'MESH':
             array.append(child)

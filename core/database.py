@@ -13,7 +13,7 @@ def get_objects(obj, written_names=None,csv_changed=False):
 
     # Clean and normalize name
     old_name = obj.name
-    obj.name = old_name.replace("/", "_")
+    obj.name = old_name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
     parts = obj.name.split(".")
     base_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
 
@@ -55,7 +55,7 @@ def get_objects(obj, written_names=None,csv_changed=False):
 def create_or_find_csv(obj, database_path):
     if "/" in obj.name:
         old_name = obj.name
-        obj.name = old_name.replace("/","_")
+        obj.name = old_name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
     # ✅ Process this object if JoinChildren True
@@ -111,7 +111,7 @@ def control_database(obj,database_path):
     for filename in os.listdir(completed_folder_path):
         if filename.lower().endswith('.csv'):
             filename_string = filename[:-4]
-            obj.name = obj.name.replace("/", "_")
+            obj.name = obj.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
             parts = obj.name.split(".")
             name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
             if name == filename_string:
@@ -164,7 +164,7 @@ def select_hierarchy(obj):
 def find_completed_csv(obj,database_path):
     completed_folder_path = os.path.join(database_path, "Completed")
     # Replace "/" in object name
-    obj.name = obj.name.replace("/", "_")
+    obj.name = obj.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
     
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
@@ -183,7 +183,7 @@ def find_completed_csv(obj,database_path):
         bpy.ops.object.select_all(action='DESELECT')
         object_to_iterate=[]
         for object in objects:
-            object.name = object.name.replace("/", "_")
+            object.name = object.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
             parts = object.name.split(".")
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
             for element_name in element_names:
@@ -274,7 +274,9 @@ def find_completed_csv(obj,database_path):
                             bpy.ops.object.join()
                         break
             
-                joined_obj=bpy.context.view_layer.objects.active           
+                joined_obj=bpy.context.view_layer.objects.active
+
+                
                 old_name = obj.name
                 level = obj.get("LevelOfDetail", None)
                 if level is not None:
@@ -282,10 +284,34 @@ def find_completed_csv(obj,database_path):
                 parent = obj.parent
                 if parent is not None:
                     joined_obj.parent = parent
-                    bpy.data.objects.remove(obj, do_unlink=True)
-                    joined_obj.name = old_name
-                    joined_obj.data.name = old_name
-                    joined_obj["JoinChildren"]=True
+                    children = obj.children
+                    joined_children=[]
+                    for child in children:
+                        if child.type=="MESH" and child.get("JoinChildren", False) is True:
+                            joined_children.append(child)
+                    if len(joined_children)>0:
+                        new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data)
+                        for collection in obj.users_collection:
+                            collection.objects.link(new_obj)
+                         
+                        for child in children:
+                            child.parent = new_obj
+
+                        bpy.data.objects.remove(joined_obj, do_unlink=True)
+                        bpy.data.objects.remove(obj, do_unlink=True)
+                        new_obj.name = old_name
+                        new_obj.data.name = old_name
+                        new_obj["JoinChildren"]=True
+                        new_obj.parent = parent
+                        if level is not None:
+                            new_obj["LevelOfDetail"] = level
+                    else:
+
+
+                        bpy.data.objects.remove(obj, do_unlink=True)
+                        joined_obj.name = old_name
+                        joined_obj.data.name = old_name
+                        joined_obj["JoinChildren"]=True
                 else:
                     print(f"{obj} has not a father")
                     children = obj.children
