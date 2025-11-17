@@ -235,10 +235,10 @@ class CustomPanel_GroupingProperties(bpy.types.Panel):
             row2.label(text="Database folder path:")
             row3 = layout.row(align=True)
             row3.prop(obj.my_properties, "database_path",text="")
-            row3.operator("groupingproperties.databasepath", text="", icon="CHECKMARK")
+            row3.operator("groupingproperties.databasepath", text="", icon="MOD_MULTIRES")
             row4 = layout.row(align=True)
             row4.label(text="Autogroup elements based on DB")
-            row4.operator("database.autofill", text="", icon="INTERNET")
+            #row4.operator("database.autofill", text="", icon="INTERNET")
 
             # Row for deleting objects based on the imported CSV
             row5 = layout.row(align=True)
@@ -247,6 +247,9 @@ class CustomPanel_GroupingProperties(bpy.types.Panel):
             row6 = layout.row(align=True)
             row6.label(text="Join complanar faces")
             row6.operator("joincomplanarfaces.run_script", text="", icon="MOD_TRIANGULATE")
+            row7 = layout.row(align=True)
+            row7.label(text="Convert meshes in IFC elements")
+            row7.operator("ifc.convertmeshes", text="", icon="MOD_BUILD")
 
         else:
             layout.label(text="No object selected")

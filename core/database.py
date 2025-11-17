@@ -81,7 +81,7 @@ def create_or_find_csv(obj, database_path):
                     all_rows = old_rows + rows
                     # Header
                     writer.writerow(
-                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified",]
+                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
                     )
                     writer.writerows(all_rows)
             
@@ -93,7 +93,7 @@ def create_or_find_csv(obj, database_path):
                     bpy.context.view_layer.objects.active=obj
                     # Header
                     writer.writerow(
-                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified",]
+                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
                     )
 
                     # Data rows
@@ -338,3 +338,159 @@ def find_completed_csv(obj,database_path):
 
     else:
         print(f"No CSV found for '{obj.name}' at {file_path}")
+
+
+def addIfcElementAssembly(obj,database_path,father=None):
+    if obj.type == "MESH" and len(obj.children)==0:
+        addIfcElement(obj,"IfcElementAssembly",father)
+    if obj.type == "MESH" and len(obj.children)>0:
+        original_name=obj.name
+        bpy.context.scene.BIMRootProperties.ifc_product = 'IfcElement'
+        bpy.context.scene.BIMRootProperties.ifc_class = 'IfcElementAssembly'
+        bpy.context.scene.BIMRootProperties.representation_template = 'EMPTY'
+        bpy.context.scene.BIMRootProperties.name = obj.name
+        bpy.ops.bim.add_element()
+        new_ifc_assembly=bpy.context.view_layer.objects.active
+        bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
+        new_ifc_assembly.BIMAttributeProperties.attributes[1].string_value = original_name
+        bpy.ops.bim.edit_attributes()
+        bpy.ops.object.select_all(action='DESELECT')
+        if not father == None:
+            print(f"    And its father is: {father.name}")
+            # Aggregate the new IfcElementAssmebly under its father
+            bpy.ops.bim.enable_editing_aggregate()
+            new_ifc_assembly.BIMObjectAggregateProperties.relating_object = father
+            bpy.ops.bim.aggregate_assign_object(relating_object=father.BIMObjectProperties.ifc_definition_id)
+            # Recreate the tree in the Blender Menu giving the parent relation to the Blender Object. Is not necessary for the IFC sake, but is useful for the Blender visualization
+            new_ifc_assembly.parent= father
+        bpy.context.view_layer.objects.active=obj
+        
+        # This time we don't add a new IFC element, but we convert the mesh in an IfcElement
+        bpy.ops.bim.assign_class(ifc_class="IfcElementAssembly")
+        bpy.ops.object.select_all(action='DESELECT')
+        new_ifc_assembly_part=bpy.context.view_layer.objects.active
+        bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
+        new_ifc_assembly_part.BIMAttributeProperties.attributes[1].string_value = f"{original_name}_Part" # Edit the Name attribute
+        bpy.ops.bim.edit_attributes()
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.bim.enable_editing_aggregate()
+        new_ifc_assembly_part.BIMObjectAggregateProperties.relating_object = new_ifc_assembly
+        bpy.ops.bim.aggregate_assign_object(relating_object=new_ifc_assembly.BIMObjectProperties.ifc_definition_id)
+        
+        # Recreate the tree in the Blender Menu giving the parent relation to the Blender Object. Is not necessary for the IFC sake, but is useful for the Blender visualization
+        new_ifc_assembly_part.parent= new_ifc_assembly
+        for child in new_ifc_assembly_part.children:
+            parts = original_name.split(".")
+            file_name = ".".join(parts[:-1]) if len(parts) > 1 else original_name
+            file_path = os.path.join(database_path, f"{file_name}.csv")
+            if os.path.exists(file_path):
+                df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
+                # FOR PRODUCTS IN THE DB
+                if "Product in DB" not in df.columns:
+                    return
+                df_filtered = df[df["Product in DB"] == "Yes"]
+                element_names = df_filtered["Element Name"].dropna().astype(str).to_dict()
+                ifc_class     = df_filtered["IfcClass"].astype(str).to_dict()
+                child_parts= child.name.split(".")
+                child_name=".".join(child_parts[:-1]) if len(child_parts) > 1 else child.name
+                for idx, name in element_names.items():
+                    if child_name == name:
+                        if ifc_class[idx]=="IfcElementAssembly":
+                            addIfcElementAssembly(child,database_path,new_ifc_assembly)
+                        else:
+                            addIfcElement(child,ifc_class[idx],new_ifc_assembly)
+            
+        bpy.context.view_layer.objects.active=new_ifc_assembly
+    else:    
+        print("_  _  _  _  _  _  _  _  _  _  _  _  _  _  _  ")
+        print(f"A new IfcElementAssembly for object: {obj.name}") # The print of the name is before the command because then it change name
+        # These lines are for open the scene for add a new Ifc entity
+        bpy.context.scene.BIMRootProperties.ifc_product = 'IfcElement'
+        bpy.context.scene.BIMRootProperties.ifc_class = 'IfcElementAssembly'
+        bpy.ops.bim.add_element() 
+        new_ifc_assembly=bpy.context.view_layer.objects.active # Insert in a variable the active object (the ifcElementAssembly that has been created)
+        # These lines are for editing the name
+        bpy.ops.bim.enable_editing_attributes(mass_operation=False)
+        new_ifc_assembly.BIMAttributeProperties.attributes[1].string_value = obj.name
+        bpy.ops.bim.edit_attributes()
+        bpy.ops.object.select_all(action='DESELECT')
+        # If father is not None
+        if not father == None:
+            print(f"    And its father is: {father.name}")
+            # Aggregate the new IfcElementAssmebly under its father
+            bpy.ops.bim.enable_editing_aggregate()
+            new_ifc_assembly.BIMObjectAggregateProperties.relating_object = father
+            bpy.ops.bim.aggregate_assign_object(relating_object=father.BIMObjectProperties.ifc_definition_id)
+            # Recreate the tree in the Blender Menu giving the parent relation to the Blender Object. Is not necessary for the IFC sake, but is useful for the Blender visualization
+            new_ifc_assembly.parent= father 
+
+
+# Function for adding IfcElement based on the CSV values 
+def addIfcElement(obj,element_class,father=None):
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    # With this function if an object in the CSV has no Ifc Class value compiled, it won't be created and then it will be deleted.
+    if not element_class == None:
+        print("________________________________________________________________________")
+        print(f"A new {element_class} for object: {obj.name}")
+        original_name=obj.name
+        # This time we don't add a new IFC element, but we convert the mesh in an IfcElement
+        bpy.ops.bim.assign_class(ifc_class=element_class)
+        bpy.ops.object.select_all(action='DESELECT')
+        new_ifc_element=bpy.context.view_layer.objects.active
+        bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
+        new_ifc_element.BIMAttributeProperties.attributes[1].string_value = original_name # Edit the Name attribute
+#        if not element_predefined_type == None:
+#            new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = element_predefined_type # Edit the Predefined Type
+#            print(f"    And its predefined type is: {element_predefined_type}")
+#            if not element_object_type == None:
+#                new_ifc_element.BIMAttributeProperties.attributes[3].string_value = element_object_type # Edit the Object Type
+#                print(f"    With Object Type: {element_object_type}")
+        bpy.ops.bim.edit_attributes() # Confirm the editing
+        if not father == None:
+            bpy.ops.bim.enable_editing_aggregate()
+            new_ifc_element.BIMObjectAggregateProperties.relating_object = father
+            bpy.ops.bim.aggregate_assign_object(relating_object=father.BIMObjectProperties.ifc_definition_id)
+            new_ifc_element.parent= father
+            print(f"    And its father is: {father.name}")
+    bpy.ops.object.select_all(action='DESELECT')
+
+def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",father=None):
+    completed_folder_path = os.path.join(database_path, "Completed")
+    
+    parts = obj.name.split(".")
+    file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
+    file_path = os.path.join(completed_folder_path, f"{file_name}.csv")
+    
+    if os.path.exists(file_path):
+        df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
+        # FOR PRODUCTS IN THE DB
+        if "Product in DB" not in df.columns:
+            return
+        df_filtered = df[df["Product in DB"] == "Yes"]
+        element_names = df_filtered["Element Name"].dropna().astype(str).to_dict()
+        ifc_class     = df_filtered["IfcClass"].astype(str).to_dict()
+        bpy.ops.object.select_all(action='DESELECT')
+        select_hierarchy(obj)
+        objects = bpy.context.selected_objects
+        bpy.ops.object.select_all(action='DESELECT')
+        object_to_iterate={}
+        for object in objects:
+            parts = object.name.split(".")
+            file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
+            for idx, name in element_names.items():
+                if file_name == name:
+                    object_to_iterate[object]=ifc_class[idx]
+
+        
+        
+        print(f"{obj.name} is a {ifc_entity}")
+        if ifc_entity=="IfcElementAssembly":
+            addIfcElementAssembly(obj,completed_folder_path,father)
+            new_ifc_assembly=bpy.context.view_layer.objects.active
+        else:
+            addIfcElement(obj,ifc_entity,father)
+            
+        if len(object_to_iterate)>0:
+            for o in object_to_iterate:
+                createIfcAssemblyTree(o,database_path,object_to_iterate[o],new_ifc_assembly)

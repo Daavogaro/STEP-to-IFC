@@ -620,6 +620,28 @@ class DatabaseSimplify_Runscript(bpy.types.Operator):
             self.report({'ERROR'}, f"Error in database simplification: {e}")
             return {'CANCELLED'}
         return {'FINISHED'}
+    
+class ConvertMeshesInIFC_Runscript(bpy.types.Operator):
+    bl_idname = "ifc.convertmeshes"
+    bl_label = "Convert Meshes in IFC"
+    bl_description = "Convert all meshes in the scene to IFC format"
+
+    def execute(self, context):
+        global database_path
+        if not database_path or not os.path.isdir(database_path):
+            self.report({'ERROR'}, "Database path is not set or invalid. Please set it first.")
+            return {'CANCELLED'}
+        active_obj = bpy.context.view_layer.objects.active
+        print(f"Database path set to: {database_path}")
+        try:
+            if active_obj:
+                database.createIfcAssemblyTree(active_obj, database_path)
+            
+            self.report({'INFO'}, "All meshes converted to IFC format.")
+        except Exception as e:
+            self.report({'ERROR'}, f"Error in converting meshes: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
 
 def register():
     bpy.utils.register_class(MakeMeshesDataUniques_Runscript)
@@ -639,6 +661,7 @@ def register():
     bpy.utils.register_class(AssignGroupingPropertiesDatabasePath_Runscript)
     bpy.utils.register_class(AutoGroupDatabase_Runscript)
     bpy.utils.register_class(DatabaseSimplify_Runscript)
+    bpy.utils.register_class(ConvertMeshesInIFC_Runscript)
 
 def unregister():
     bpy.utils.unregister_class(MakeMeshesDataUniques_Runscript)
@@ -658,3 +681,4 @@ def unregister():
     bpy.utils.unregister_class(AssignGroupingPropertiesDatabasePath_Runscript)
     bpy.utils.unregister_class(AutoGroupDatabase_Runscript)
     bpy.utils.unregister_class(DatabaseSimplify_Runscript)
+    bpy.utils.unregister_class(ConvertMeshesInIFC_Runscript)
