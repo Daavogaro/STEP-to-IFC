@@ -439,13 +439,13 @@ def addIfcElementAssembly(obj,database_path,father=None):
 
 
 # Function for adding IfcElement based on the CSV values 
-def addIfcElement(obj,element_class,father=None):
+def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=None, father=None):
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     # With this function if an object in the CSV has no Ifc Class value compiled, it won't be created and then it will be deleted.
     if not element_class == None:
         print("________________________________________________________________________")
-        print(f"A new {element_class} for object: {obj.name}")
+        print(f"A new {element_class} - {predefined_type} for object: {obj.name}")
         original_name=obj.name
         # This time we don't add a new IFC element, but we convert the mesh in an IfcElement
         bpy.ops.bim.assign_class(ifc_class=element_class)
@@ -453,13 +453,14 @@ def addIfcElement(obj,element_class,father=None):
         new_ifc_element=bpy.context.view_layer.objects.active
         bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
         new_ifc_element.BIMAttributeProperties.attributes[1].string_value = original_name # Edit the Name attribute
-        # TODO Add predefined type, type object and other properties from the CSV
-#        if not element_predefined_type == None:
-#            new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = element_predefined_type # Edit the Predefined Type
-#            print(f"    And its predefined type is: {element_predefined_type}")
-#            if not element_object_type == None:
-#                new_ifc_element.BIMAttributeProperties.attributes[3].string_value = element_object_type # Edit the Object Type
-#                print(f"    With Object Type: {element_object_type}")
+        # TODO Add properties from the CSV
+        new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = predefined_type # Edit the Predefined Type
+        if object_type != None:
+            if predefined_type == "USERDEFINED":
+                new_ifc_element.BIMAttributeProperties.attributes[3].string_value = object_type # Edit the Object Type
+                print(f"    With Object Type: {object_type}")
+            else:
+                print(f"    Predefined Type is not USERDEFINED, so Object Type is not set")
         bpy.ops.bim.edit_attributes() # Confirm the editing
         if not father == None:
             bpy.ops.bim.enable_editing_aggregate()
@@ -470,7 +471,7 @@ def addIfcElement(obj,element_class,father=None):
     bpy.ops.object.select_all(action='DESELECT')
 
 # Recursive function to create the IfcAssembly tree based on the CSV values
-def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",father=None):
+def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",predefined_type="NOTDEFINED", object_type=None, father=None):
     completed_folder_path = os.path.join(database_path, "Completed")
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
@@ -480,8 +481,10 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",fat
         if "Product in DB" not in df.columns:
             return
         df_filtered = df[df["Product in DB"] == "Yes"]
-        element_names = df_filtered["Element Name"].dropna().astype(str).to_dict()
-        ifc_class     = df_filtered["IfcClass"].astype(str).to_dict()
+        df_element_names = df_filtered["Element Name"].dropna().astype(str).to_dict()
+        df_ifc_class = df_filtered["IfcClass"].astype(str).to_dict()
+        df_predefined_type = df_filtered["PredefinedType"].astype(str).to_dict()
+        df_object_type = df_filtered["ObjectType"].astype(str).to_dict()
         bpy.ops.object.select_all(action='DESELECT')
         select_hierarchy(obj)
         objects = bpy.context.selected_objects
@@ -491,14 +494,22 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",fat
         for object in objects:
             parts = object.name.split(".")
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
-            for idx, name in element_names.items():
+            for idx, name in df_element_names.items():
                 if file_name == name:
-                    object_to_iterate[object]=ifc_class[idx]
+                    if df_predefined_type[idx]!="nan":
+                        predefined_type=df_predefined_type[idx]
+                    if df_object_type[idx]!="nan":
+                        object_type=df_object_type[idx]
+                    object_to_iterate[object]={"IfcClass": df_ifc_class[idx], "PredefinedType": predefined_type, "ObjectType": object_type}
+                    predefined_type="NOTDEFINED"
+                    object_type=None
+                    
         if ifc_entity=="IfcElementAssembly":
             addIfcElementAssembly(obj,completed_folder_path,father)
             new_ifc_assembly=bpy.context.view_layer.objects.active
         else:
-            addIfcElement(obj,ifc_entity,father)
+            addIfcElement(obj,ifc_entity,predefined_type,object_type,father)
         if len(object_to_iterate)>0:
             for o in object_to_iterate:
-                createIfcAssemblyTree(o,database_path,object_to_iterate[o],new_ifc_assembly)
+                print(object_to_iterate[o]["IfcClass"],object_to_iterate[o]["PredefinedType"],object_to_iterate[o]["ObjectType"],)
+                createIfcAssemblyTree(o,database_path,object_to_iterate[o]["IfcClass"],object_to_iterate[o]["PredefinedType"],object_to_iterate[o]["ObjectType"],new_ifc_assembly)
