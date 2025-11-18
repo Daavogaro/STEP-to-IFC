@@ -1,5 +1,5 @@
 # This add-on is under active development for the upcoming STEP-to-IFC v2 release.
-For a stable version visit [STEP-to-IFC_v1.0.0] (https://github.com/Daavogaro/STEP-to-IFC/tree/6dffe4c1dedc0da9d2256a010ff21ac749e36c43)
+For a stable version visit [STEP-to-IFC_v1.0.0](https://github.com/Daavogaro/STEP-to-IFC/tree/6dffe4c1dedc0da9d2256a010ff21ac749e36c43)
 # STEP-to-IFC Blender Add-on
 
 Although STEP (ISO 10303-21) and IFC (ISO 16739-1) are both standardized, their conceptual and practical incompatibilities continue to hinder seamless data exchange between the manufacturing and construction sectors. The approach is not merely a format conversion but a structured system to adapt industrial logic to the information needs of civil design—ensuring semantic integrity and computational efficiency. This workflow is scalable, transparent and open-source, and thanks to the intuitive User Interface is usable also in professional context without advanced programming skills. This work is described in a paper, the preprint of which is available at the following link: [Click to read the paper](https://www.mdpi.com/2079-8954/13/6/421)
