@@ -6,33 +6,34 @@ from mathutils import Vector
 from . import importCSV
 from . import deleteSmallElements
 
-def get_objects(obj, written_names=None,csv_changed=False):
-    
+# TODO: Controllare se servono tutte le sostituzioni di caratteri
+# TODO: Controllare che ci siano solo le funzioni che servono
+
+def print_rows(obj, written_names=None,csv_changed=False):
+    # Written names is a set that contains the names already written in the CSV, to avoid duplicates
     if written_names is None:
         written_names = set()
-
     # Clean and normalize name
     old_name = obj.name
     obj.name = old_name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
     parts = obj.name.split(".")
     base_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
-
     level = obj.get("LevelOfDetail", None)
     rows = []
 
-    # --- LEAF CASE ---
+    # For the leaf nodes (no children)
     if not obj.children:
-        if base_name not in written_names:
+        if base_name not in written_names: # If is not already written
             written_names.add(base_name)
             csv_changed=True
-            if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active:
+            if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active: # If JoinChildren is True and is not the active object
                 row = [base_name, "Yes", level,"","" if level else ""]
                 rows.append(row)
             else:
                 rows.append([base_name])
         return rows, csv_changed 
 
-    # --- JOINED CHILDREN CASE ---
+    # For the nodes with JoinChildren True (non-leaf)
     if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active:
         print(f"The active obj is {bpy.context.view_layer.objects.active.name} and the object is {obj.name}")
         if base_name not in written_names:
@@ -42,9 +43,9 @@ def get_objects(obj, written_names=None,csv_changed=False):
             written_names.add(base_name)
         return rows,csv_changed
 
-    # --- RECURSION CASE ---
+    # For the recursion case
     for child in obj.children:
-        child_rows, child_changed = get_objects(child, written_names, csv_changed)
+        child_rows, child_changed = print_rows(child, written_names, csv_changed)
         rows.extend(child_rows)
         if child_changed:
             csv_changed = True
@@ -53,27 +54,31 @@ def get_objects(obj, written_names=None,csv_changed=False):
 
 
 def create_or_find_csv(obj, database_path):
-    if "/" in obj.name:
-        old_name = obj.name
-        obj.name = old_name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
+    # Replace not allowed characters in object name
+    obj.name = obj.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
     parts = obj.name.split(".")
+    # Select only the base name without the progression number that Blender/CATIA adds automatically
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
-    # ✅ Process this object if JoinChildren True
+    # Process this object if JoinChildren True
     if obj.get("JoinChildren", False) is True:
-        completed_file_path = os.path.join(database_path, "Completed", f"{file_name}.csv")
-        to_be_completed_file_path = os.path.join(database_path, "To be completed", f"{file_name}.csv")
-
-        if os.path.exists(completed_file_path):
+        completed_file_path = os.path.join(database_path, "Completed", f"{file_name}.csv") # Path to the completed CSV file
+        to_be_completed_file_path = os.path.join(database_path, "To be completed", f"{file_name}.csv") # Path to the "to be completed" CSV file
+        # If the completed CSV exists in the completed folder
+        if os.path.exists(completed_file_path): 
             print(f"Already completed: {completed_file_path}")
+            # Read existing CSV to add new rows if there are new objects
+            # ! Still problems with new rows addition: in the file X.csv the second time it runs it write a X row, even if it should not
             df = pd.read_csv(completed_file_path,encoding="utf-8",sep=";",engine="python")
             old_rows = df.values.tolist()  # Converts all existing CSV rows to list of lists
             old_rows = df.fillna("").values.tolist()  # Replace NaN with empty string
+            # Check if "Element Name" column exists
             if "Element Name" not in df.columns:
                 print(f"{completed_file_path} has not Element Name column")
                 return
             element_names = df["Element Name"].dropna().astype(str).tolist()
             bpy.context.view_layer.objects.active=obj
-            rows, csv_changed = get_objects(obj,set(element_names))
+            rows, csv_changed = print_rows(obj,set(element_names)) # It returns the new rows to add and if there was any change
+            # If there are new rows, append them to the completed CSV
             if csv_changed is True:
                 print(obj.name)
                 with open(to_be_completed_file_path, 'w', newline='', encoding='utf-8') as file:
@@ -84,10 +89,9 @@ def create_or_find_csv(obj, database_path):
                         ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
                     )
                     writer.writerows(all_rows)
-            
+        # If the completed CSV does not exist, create a new "to be completed" CSV    
         else:
             if not os.path.exists(to_be_completed_file_path):
-                
                  with open(to_be_completed_file_path, 'w', newline='', encoding='utf-8') as file:
                     writer = csv.writer(file, delimiter=';')
                     bpy.context.view_layer.objects.active=obj
@@ -95,17 +99,16 @@ def create_or_find_csv(obj, database_path):
                     writer.writerow(
                         ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
                     )
-
                     # Data rows
-                    rows, csv_changed = get_objects(obj)
+                    rows, csv_changed = print_rows(obj)
                     writer.writerows(rows)
-            else:
-                print(f"____________________________________________")
 
-    # ✅ ALWAYS go through children — even if current object didn’t match
+    # Iterate through children
     for child in obj.children:
         create_or_find_csv(child, database_path)
 
+# Function to control if the object is in the database and set JoinChildren property
+# ! Need to update this function also for the Preset LOD. Remember to uncomment the button
 def control_database(obj,database_path):
     completed_folder_path = os.path.join(database_path, "Completed")
     for filename in os.listdir(completed_folder_path):
@@ -120,86 +123,85 @@ def control_database(obj,database_path):
 
 
 
-
+# Recursive function to find all meshes inside an object
 def find_meshes_inside(obj, array=None):
-    """
-    Recursively collect all MESH objects under obj,
-    ignoring objects with JoinChildren=True (except the active root).
-    """
     if array is None:
         array = []
+    # active_root = bpy.context.view_layer.objects.active # Penso si possa eliminare
 
-    active_root = bpy.context.view_layer.objects.active
-
-    # Skip only this object if JoinChildren=True and not active root
+    # Skip only this object if JoinChildren=True and not active root, in order to avoid to skip the entire subtree only because the first active object has JoinChildren=True
     if obj.get("JoinChildren", False) is True and not obj==bpy.context.view_layer.objects.active:
         return
     else:
         if obj.type == 'MESH':
             array.append(obj)
-
     # Always recurse through children
     for child in obj.children:
         find_meshes_inside(child, array)
-
     return array
 
-
+# Recursive function to find all meshes inside an object
 def find_children_meshes(obj, meshes=None):
     if meshes is None:
         meshes = []
+    
     for child in obj.children:
-        if child.get("JoinChildren", False):
+        if child.get("JoinChildren", False): # It does not go deeper if JoinChildren is True
             continue  
         if child.type == "MESH":
             meshes.append(child)
         find_children_meshes(child, meshes)
     return meshes
 
+# Recursive function to select an object and all its children
 def select_hierarchy(obj):
     obj.select_set(True)
     for child in obj.children:
         select_hierarchy(child)
 
-def find_completed_csv(obj,database_path):
+
+def simplify_geometries_csv(obj,database_path):
     completed_folder_path = os.path.join(database_path, "Completed")
-    # Replace "/" in object name
+    # Replace all not allowed characters in object name
     obj.name = obj.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
-    
+    # Select only the base name without the progression number that Blender/CATIA adds automatically
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
     file_path = os.path.join(completed_folder_path, f"{file_name}.csv")
-    
+    # If the completed CSV exists in the completed folder
     if os.path.exists(file_path):
+        # Read existing CSV to get the simplification info
         df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
-        # FOR PRODUCTS IN THE DB
+        # Now we want to select only the nodes of our assembly
         if "Product in DB" not in df.columns:
             return
-        df_filtered = df[df["Product in DB"] == "Yes"]
-        element_names = df_filtered["Element Name"].dropna().astype(str).tolist()
+        df_filtered = df[df["Product in DB"] == "Yes"] # Filter rows where "Product in DB" is "Yes"
+        element_names = df_filtered["Element Name"].dropna().astype(str).tolist() # Get the list of element names
         bpy.ops.object.select_all(action='DESELECT')
-        select_hierarchy(obj)
+        select_hierarchy(obj) # Select the entire hierarchy of the object selected. This because there could be more objects that have the same base name around the assembly. We want to process only the children of the selected assembly
         objects = bpy.context.selected_objects
         bpy.ops.object.select_all(action='DESELECT')
-        object_to_iterate=[]
-        for object in objects:
+
+        object_to_iterate=[] # List of objects that are nodes in the database, for which we have to reiterate the simplification
+
+        for object in objects: # Between the selected objects, find the ones that are in the database and append them to the list
             object.name = object.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
             parts = object.name.split(".")
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
             for element_name in element_names:
                 if file_name == element_name:
                     object_to_iterate.append(object)
-        if len(object_to_iterate)>0:
-#            print(f"Elements name are {object_to_iterate}")
+        if len(object_to_iterate)>0: # If there are objects to iterate, call the function recursively
             for o in object_to_iterate:
-                find_completed_csv(o,database_path)
-        # FOR ELEMENT NOT IN DB
+                simplify_geometries_csv(o,database_path)
+        # For element under our nodes, apply the simplification or deletion
         if "To be deleted" not in df.columns:
             return        
         df_del_filtered = df[df["To be deleted"] == "Yes"]
         if "MID: To be simplified" not in df.columns:
             return        
         df_sim_filtered = df[df["MID: To be simplified"] == "Yes"]
+        # If the selected node is a mesh itself (for objects that are already merged from other softwares), so it is a leaf node
         if obj.type == "MESH":
             if obj.get("LevelOfDetail", False) == "LOW":
                 bbox=importCSV.create_bbox(obj)
@@ -219,43 +221,51 @@ def find_completed_csv(obj,database_path):
                         bbox["LevelOfDetail"] = level
                     bbox["JoinChildren"]=True
                     bpy.data.objects.remove(obj, do_unlink=True)
+        # If the selected node is not a mesh, so it has children to process and to join, in order to create a leaf node
         else:
+            # Find all meshes inside the object
             meshes=find_children_meshes(obj)
             print(f"For the object {obj.name} there are {len(meshes)} mesehes to process")
-            to_delete=df_del_filtered["Element Name"].dropna().astype(str).tolist()
-            to_simplify=df_sim_filtered["Element Name"].dropna().astype(str).tolist()
-            new_meshes=[]
+            to_delete=df_del_filtered["Element Name"].dropna().astype(str).tolist() # Name list of elements to delete
+            to_simplify=df_sim_filtered["Element Name"].dropna().astype(str).tolist() # Name list of elements to simplify
+            remaining_meshes=[] # List of all the meshes simplified or not to join later
             for mesh in meshes:
                 parts = mesh.name.split(".")
                 file_name = ".".join(parts[:-1]) if len(parts) > 1 else mesh.name
+                # For the LOD "LOW" we delete the mesh that in the CSV is marked as "to be deleted" and we create a bbox for the all the remaining meshes
                 if obj.get("LevelOfDetail", False) == "LOW":
                     if file_name in to_delete:
                         bpy.data.objects.remove(mesh, do_unlink=True)
                     else:
                         bbox=importCSV.create_bbox(mesh)
-                        new_meshes.append(bbox)
+                        remaining_meshes.append(bbox)
                         bpy.data.objects.remove(mesh, do_unlink=True)
                     continue
+                # For the LOD "MEDIUM" we delete the mesh that in the CSV is marked as "to be deleted", we simplify the ones marked as "to be simplified" and we keep the remaining ones
                 if obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH" :
                     if file_name in to_delete:
                         bpy.data.objects.remove(mesh, do_unlink=True)
                     else:
                         if file_name in to_simplify:
                             bbox=importCSV.create_bbox(mesh)
-                            new_meshes.append(bbox)
+                            remaining_meshes.append(bbox)
                             bpy.data.objects.remove(mesh, do_unlink=True)
                         else:
-                            new_meshes.append(mesh)
-                    continue     
-                if obj.get("LevelOfDetail", False) == "HIGH":
-                    new_meshes.append(mesh)
+                            remaining_meshes.append(mesh)
                     continue
-
-            for mesh in new_meshes:    
-                mesh.parent=obj        
+                # For the LOD "HIGH" we do not delete any meshes and we keep all the meshes as they are     
+                if obj.get("LevelOfDetail", False) == "HIGH":
+                    remaining_meshes.append(mesh)
+                    continue
+            # Now we have the list of remaining meshes to join, we move them as children of the main object to keep the hierarchy
+            for mesh in remaining_meshes:    
+                mesh.parent=obj
+            # We delete all the hierarchy that not contains meshes anymore        
             deleteSmallElements.hideLeafWithNoMesh(obj)
             deleteSmallElements.hideParentsWithHiddenChildren(obj)
             deleteSmallElements.delete_hidden_elements(obj)
+            # TODO Prova a semplifcare utiliuzzando direttamente le mesh in remaining_meshes senza creare un nuovo array
+            # Select only the remaining meshes to join them
             meshes_to_join=[]
             for child in obj.children:
                 if child.get("JoinChildren", False) is True:
@@ -264,39 +274,43 @@ def find_completed_csv(obj,database_path):
                     meshes_to_join.append(child)
             bpy.ops.object.select_all(action='DESELECT')
             if len(meshes_to_join)>0:
-                bpy.context.view_layer.objects.active = meshes_to_join[0]
-                for mesh in meshes_to_join:
+                bpy.context.view_layer.objects.active = meshes_to_join[0] #Set the first element as active
+                for mesh in meshes_to_join: # Select all the meshes to join
                     mesh.select_set(True)
                 meshes_to_join=[]
+                # Join all the meshes
                 for area in bpy.context.window.screen.areas:
                     if area.type == 'VIEW_3D':
                         with bpy.context.temp_override(area=area):
                             bpy.ops.object.join()
                         break
-            
+                # Now the active object is the joined one
                 joined_obj=bpy.context.view_layer.objects.active
-
-                
+                # Give it proper name and properties
                 old_name = obj.name
                 level = obj.get("LevelOfDetail", None)
                 if level is not None:
                     joined_obj["LevelOfDetail"] = level
                 parent = obj.parent
+                # If there is a parent
                 if parent is not None:
-                    joined_obj.parent = parent
+                    joined_obj.parent = parent # TODO Controllare se serve o se è una riassegnazione inutile
                     children = obj.children
                     joined_children=[]
+                    # If in the children there are other nodes with JoinChildren True, we don't want to delete the father node (empty Blender object), with a mesh. So we substitute the father node with a mesh node of the joined elements, and as children we put the other joined meshes
+                    # This way we keep the hierarchy when the STEP model is a little bit messy and all the parts are not properly grouped
                     for child in children:
                         if child.type=="MESH" and child.get("JoinChildren", False) is True:
                             joined_children.append(child)
                     if len(joined_children)>0:
+                        # Sobstitute the father node with a mesh node that contains the joined meshes
                         new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data)
                         for collection in obj.users_collection:
                             collection.objects.link(new_obj)
-                         
+                        # Reassign all the nodes to the new object
                         for child in children:
                             child.parent = new_obj
-
+                        # Reassign the properties
                         bpy.data.objects.remove(joined_obj, do_unlink=True)
                         bpy.data.objects.remove(obj, do_unlink=True)
                         new_obj.name = old_name
@@ -306,25 +320,22 @@ def find_completed_csv(obj,database_path):
                         if level is not None:
                             new_obj["LevelOfDetail"] = level
                     else:
-
-
+                        # If the STEP model is well organized, sobsitute the empty father node with the joined mesh
                         bpy.data.objects.remove(obj, do_unlink=True)
                         joined_obj.name = old_name
                         joined_obj.data.name = old_name
                         joined_obj["JoinChildren"]=True
-                else:
+                else: # If there is not a parent, simply sobsitute the empty father node with the joined mesh
                     print(f"{obj} has not a father")
                     children = obj.children
                     new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data)
                     new_obj.matrix_world =joined_obj.matrix_world.copy()
                     for collection in obj.users_collection:
                         collection.objects.link(new_obj)
-                     
                     for child in children:
                         child_matrix = child.matrix_world.copy()
                         child.parent = new_obj
                         child.matrix_world = child_matrix 
-
                     bpy.data.objects.remove(joined_obj, do_unlink=True)
                     bpy.data.objects.remove(obj, do_unlink=True)
                     new_obj.name = old_name
@@ -332,18 +343,22 @@ def find_completed_csv(obj,database_path):
                     new_obj["JoinChildren"]=True
                     if level is not None:
                         new_obj["LevelOfDetail"] = level
-            else:
+            else: 
                 meshes_to_join=[]
                 return
 
     else:
         print(f"No CSV found for '{obj.name}' at {file_path}")
 
-
+# Function for adding IfcElementAssembly based on the CSV values
 def addIfcElementAssembly(obj,database_path,father=None):
+    # For the Nodes that are leafs and they are IfcAssemblies without children. This should not happen, but if the STEP model is messy it could happen
     if obj.type == "MESH" and len(obj.children)==0:
         addIfcElement(obj,"IfcElementAssembly",father)
+    # For the Nodes that are meshes with children (this shouldn't happen, but if the STEP model is messy it could happen)
     if obj.type == "MESH" and len(obj.children)>0:
+        print("_  _  _  _  _  _  _  _  _  _  _  _  _  _  _  ")
+        # We create a new IfcElementAssembly for the father mesh, but we create it empty, and then we convert the mesh in an IfcElement that is part of the IfcElementAssembly. In fact an IfcElementAssembly can't have geometry if it aggregates other elements
         original_name=obj.name
         bpy.context.scene.BIMRootProperties.ifc_product = 'IfcElement'
         bpy.context.scene.BIMRootProperties.ifc_class = 'IfcElementAssembly'
@@ -365,33 +380,31 @@ def addIfcElementAssembly(obj,database_path,father=None):
             new_ifc_assembly.parent= father
         bpy.context.view_layer.objects.active=obj
         
-        # This time we don't add a new IFC element, but we convert the mesh in an IfcElement
+        # The real mesh of the father mesh is converted in an IfcElementAssembly adding _Part to the name
         bpy.ops.bim.assign_class(ifc_class="IfcElementAssembly")
         bpy.ops.object.select_all(action='DESELECT')
         new_ifc_assembly_part=bpy.context.view_layer.objects.active
-        bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
-        new_ifc_assembly_part.BIMAttributeProperties.attributes[1].string_value = f"{original_name}_Part" # Edit the Name attribute
+        bpy.ops.bim.enable_editing_attributes(mass_operation=False)
+        new_ifc_assembly_part.BIMAttributeProperties.attributes[1].string_value = f"{original_name}_Part"
         bpy.ops.bim.edit_attributes()
         bpy.ops.object.select_all(action='DESELECT')
         bpy.ops.bim.enable_editing_aggregate()
         new_ifc_assembly_part.BIMObjectAggregateProperties.relating_object = new_ifc_assembly
         bpy.ops.bim.aggregate_assign_object(relating_object=new_ifc_assembly.BIMObjectProperties.ifc_definition_id)
-        
-        # Recreate the tree in the Blender Menu giving the parent relation to the Blender Object. Is not necessary for the IFC sake, but is useful for the Blender visualization
-        new_ifc_assembly_part.parent= new_ifc_assembly
+        new_ifc_assembly_part.parent = new_ifc_assembly
+        # When we create the IfcElementAssembly_Part, its children are moved under it, but they are not IfcElements yet. So we have to read the CSV and convert them properly
         for child in new_ifc_assembly_part.children:
             parts = original_name.split(".")
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else original_name
             file_path = os.path.join(database_path, f"{file_name}.csv")
             if os.path.exists(file_path):
                 df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
-                # FOR PRODUCTS IN THE DB
                 if "Product in DB" not in df.columns:
                     return
                 df_filtered = df[df["Product in DB"] == "Yes"]
                 element_names = df_filtered["Element Name"].dropna().astype(str).to_dict()
-                ifc_class     = df_filtered["IfcClass"].astype(str).to_dict()
-                child_parts= child.name.split(".")
+                ifc_class = df_filtered["IfcClass"].astype(str).to_dict()
+                child_parts = child.name.split(".")
                 child_name=".".join(child_parts[:-1]) if len(child_parts) > 1 else child.name
                 for idx, name in element_names.items():
                     if child_name == name:
@@ -399,8 +412,8 @@ def addIfcElementAssembly(obj,database_path,father=None):
                             addIfcElementAssembly(child,database_path,new_ifc_assembly)
                         else:
                             addIfcElement(child,ifc_class[idx],new_ifc_assembly)
-            
         bpy.context.view_layer.objects.active=new_ifc_assembly
+    # For the Nodes that are not meshes, but empty objects with children
     else:    
         print("_  _  _  _  _  _  _  _  _  _  _  _  _  _  _  ")
         print(f"A new IfcElementAssembly for object: {obj.name}") # The print of the name is before the command because then it change name
@@ -422,7 +435,7 @@ def addIfcElementAssembly(obj,database_path,father=None):
             new_ifc_assembly.BIMObjectAggregateProperties.relating_object = father
             bpy.ops.bim.aggregate_assign_object(relating_object=father.BIMObjectProperties.ifc_definition_id)
             # Recreate the tree in the Blender Menu giving the parent relation to the Blender Object. Is not necessary for the IFC sake, but is useful for the Blender visualization
-            new_ifc_assembly.parent= father 
+            new_ifc_assembly.parent = father 
 
 
 # Function for adding IfcElement based on the CSV values 
@@ -440,6 +453,7 @@ def addIfcElement(obj,element_class,father=None):
         new_ifc_element=bpy.context.view_layer.objects.active
         bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
         new_ifc_element.BIMAttributeProperties.attributes[1].string_value = original_name # Edit the Name attribute
+        # TODO Add predefined type, type object and other properties from the CSV
 #        if not element_predefined_type == None:
 #            new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = element_predefined_type # Edit the Predefined Type
 #            print(f"    And its predefined type is: {element_predefined_type}")
@@ -455,16 +469,14 @@ def addIfcElement(obj,element_class,father=None):
             print(f"    And its father is: {father.name}")
     bpy.ops.object.select_all(action='DESELECT')
 
+# Recursive function to create the IfcAssembly tree based on the CSV values
 def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",father=None):
     completed_folder_path = os.path.join(database_path, "Completed")
-    
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
     file_path = os.path.join(completed_folder_path, f"{file_name}.csv")
-    
     if os.path.exists(file_path):
         df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
-        # FOR PRODUCTS IN THE DB
         if "Product in DB" not in df.columns:
             return
         df_filtered = df[df["Product in DB"] == "Yes"]
@@ -474,6 +486,7 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",fat
         select_hierarchy(obj)
         objects = bpy.context.selected_objects
         bpy.ops.object.select_all(action='DESELECT')
+        # With object_to_iterate we want to select only the nodes that are in the database, in order to simplify the tree structure
         object_to_iterate={}
         for object in objects:
             parts = object.name.split(".")
@@ -481,16 +494,11 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",fat
             for idx, name in element_names.items():
                 if file_name == name:
                     object_to_iterate[object]=ifc_class[idx]
-
-        
-        
-        print(f"{obj.name} is a {ifc_entity}")
         if ifc_entity=="IfcElementAssembly":
             addIfcElementAssembly(obj,completed_folder_path,father)
             new_ifc_assembly=bpy.context.view_layer.objects.active
         else:
             addIfcElement(obj,ifc_entity,father)
-            
         if len(object_to_iterate)>0:
             for o in object_to_iterate:
                 createIfcAssemblyTree(o,database_path,object_to_iterate[o],new_ifc_assembly)

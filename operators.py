@@ -611,7 +611,7 @@ class DatabaseSimplify_Runscript(bpy.types.Operator):
         try:
             if active_obj:
                 print("_______________________________________________________________")  
-                database.find_completed_csv(active_obj, database_path)   
+                database.simplify_geometries_csv(active_obj, database_path)   
                 bpy.context.view_layer.objects.active = active_obj
             else:
                 self.report({'ERROR'}, "No objects selected.")
