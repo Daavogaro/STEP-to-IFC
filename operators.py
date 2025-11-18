@@ -582,11 +582,11 @@ class AutoGroupDatabase_Runscript(bpy.types.Operator):
             return {'CANCELLED'}
 
         print(f"Database path set to: {database_path}")
-        objects = bpy.data.objects
+        active_obj = bpy.context.view_layer.objects.active
         try:
-            if objects:
-                for obj in objects:
-                    database.control_database(obj, database_path)
+            if active_obj:
+                active_obj["JoinChildren"] = True
+                database.control_database(active_obj, database_path)
             else:
                 self.report({'ERROR'}, "No objects selected.")
                 return {'CANCELLED'}

@@ -238,7 +238,7 @@ class CustomPanel_GroupingProperties(bpy.types.Panel):
             row3.operator("groupingproperties.databasepath", text="", icon="MOD_MULTIRES")
             row4 = layout.row(align=True)
             row4.label(text="Autogroup elements based on DB")
-            #row4.operator("database.autofill", text="", icon="INTERNET")
+            row4.operator("database.autofill", text="", icon="INTERNET")
 
             # Row for deleting objects based on the imported CSV
             row5 = layout.row(align=True)

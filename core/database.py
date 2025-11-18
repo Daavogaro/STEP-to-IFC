@@ -108,19 +108,40 @@ def create_or_find_csv(obj, database_path):
     for child in obj.children:
         create_or_find_csv(child, database_path)
 
-# Function to control if the object is in the database and set JoinChildren property
-# ! Need to update this function also for the Preset LOD. Remember to uncomment the button
+# Function to control if the object is in the database and set JoinChildren and LOD properties
 def control_database(obj,database_path):
     completed_folder_path = os.path.join(database_path, "Completed")
-    for filename in os.listdir(completed_folder_path):
-        if filename.lower().endswith('.csv'):
-            filename_string = filename[:-4]
-            obj.name = obj.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
-            parts = obj.name.split(".")
-            name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
-            if name == filename_string:
-                print(filename_string)
-                obj["JoinChildren"]=True    
+    parts = obj.name.split(".")
+    file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
+    file_path = os.path.join(completed_folder_path, f"{file_name}.csv")
+    if os.path.exists(file_path):
+        # Read existing CSV to get the simplification info
+        df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
+        # Now we want to select only the nodes of our assembly
+        if "Product in DB" not in df.columns:
+            return
+        if "LOD Preset" not in df.columns:
+            return
+        df_filtered = df[df["Product in DB"] == "Yes"] # Filter rows where "Product in DB" is "Yes"
+        element_names = df_filtered["Element Name"].dropna().astype(str) # Get the list of element names
+        df_lod_filtered = df["LOD Preset"].dropna().astype(str).tolist()
+        bpy.ops.object.select_all(action='DESELECT')
+        select_hierarchy(obj) # Select the entire hierarchy of the object selected. This because there could be more objects that have the same base name around the assembly. We want to process only the children of the selected assembly
+        objects = bpy.context.selected_objects
+        bpy.ops.object.select_all(action='DESELECT')
+        object_to_iterate=[] # List of objects that are nodes in the database, for which we have to reiterate the simplification
+
+        for object in objects: # Between the selected objects, find the ones that are in the database and append them to the list
+            parts = object.name.split(".")
+            file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
+            for idx, element_name in element_names.items():
+                if file_name == element_name:
+                    object["JoinChildren"]=True
+                    object["LevelOfDetail"] = df_lod_filtered[idx]
+                    object_to_iterate.append(object)
+        if len(object_to_iterate)>0: # If there are objects to iterate, call the function recursively
+            for o in object_to_iterate:    
+                control_database(o,database_path)   
 
 
 
@@ -454,7 +475,6 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
         new_ifc_element=bpy.context.view_layer.objects.active
         bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
         new_ifc_element.BIMAttributeProperties.attributes[1].string_value = original_name # Edit the Name attribute
-        # TODO Add properties from the CSV
         new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = predefined_type # Edit the Predefined Type
         if object_type != None:
             if predefined_type == "USERDEFINED":
@@ -470,6 +490,7 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
             new_ifc_element.parent= father
             print(f"    And its father is: {father.name}")
         if psets != None:
+            # TODO Ci sarà da aggiungere anche dei controlli sull'applicabilitä dei Pset
             ifc_obj=ifcTool.Ifc.get_entity(new_ifc_element)
             for pset_name, properties in psets.items():
                 if pset_name.startswith("Pset_"):
