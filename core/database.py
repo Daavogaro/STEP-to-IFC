@@ -2,6 +2,7 @@ import os
 import csv
 import pandas as pd  # Library for handling CSV files
 import bpy
+import bonsai.tool.ifc as ifcTool
 from mathutils import Vector
 from . import importCSV
 from . import deleteSmallElements
@@ -439,7 +440,7 @@ def addIfcElementAssembly(obj,database_path,father=None):
 
 
 # Function for adding IfcElement based on the CSV values 
-def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=None, father=None):
+def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=None,psets=None, father=None):
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     # With this function if an object in the CSV has no Ifc Class value compiled, it won't be created and then it will be deleted.
@@ -468,10 +469,47 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
             bpy.ops.bim.aggregate_assign_object(relating_object=father.BIMObjectProperties.ifc_definition_id)
             new_ifc_element.parent= father
             print(f"    And its father is: {father.name}")
+        if psets != None:
+            ifc_obj=ifcTool.Ifc.get_entity(new_ifc_element)
+            for pset_name, properties in psets.items():
+                if pset_name.startswith("Pset_"):
+                    ifc_pset=ifcTool.Ifc.run("pset.add_pset",product=ifc_obj,name=pset_name)
+                    print(f"    Adding Pset: {pset_name}")
+                    for prop,val in properties.items():
+                        ifcTool.Ifc.run("pset.edit_pset",pset=ifc_pset,properties={prop:val})
+                        print(f"        Adding Property: {prop} with value: {val}")
+                if pset_name.startswith("Qto_"):
+                    ifc_qto=ifcTool.Ifc.run("pset.add_qto",product=ifc_obj,name=pset_name)
+                    print(f"    Adding Qto: {pset_name}")
+                    for prop,val in properties.items():
+                        ifcTool.Ifc.run("pset.edit_qto",qto=ifc_qto,properties={prop:val})
+                        print(f"        Adding Quantity: {prop} with value: {val}")
     bpy.ops.object.select_all(action='DESELECT')
 
+def convert_value(v):
+    try:
+        return int(v)
+    except ValueError:
+        try:
+            return float(v)
+        except ValueError:
+            return v
+
+def return_Psets(psets_columns,idx):
+    psets={}
+    for pset,list in psets_columns.items():
+        pset_name = pset.split("/")[0]
+        prop_name = pset.split("/")[1]
+        if pset_name != "Pset_NameXX" and prop_name != "Prop_NameYY":
+            if list[idx]!="nan":
+                if pset_name not in psets:
+                    psets[pset_name]={prop_name:convert_value(list[idx])}
+                else:
+                    psets[pset_name][prop_name] = convert_value(list[idx])
+    return psets
+
 # Recursive function to create the IfcAssembly tree based on the CSV values
-def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",predefined_type="NOTDEFINED", object_type=None, father=None):
+def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",predefined_type="NOTDEFINED", object_type=None,psets=None, father=None):
     completed_folder_path = os.path.join(database_path, "Completed")
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
@@ -485,6 +523,9 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",pre
         df_ifc_class = df_filtered["IfcClass"].astype(str).to_dict()
         df_predefined_type = df_filtered["PredefinedType"].astype(str).to_dict()
         df_object_type = df_filtered["ObjectType"].astype(str).to_dict()
+
+        df_psets = [col for col in df.columns if col.startswith("Pset_") or col.startswith("Qto_")]
+        psets_columns=df_filtered[df_psets].astype(str).to_dict()
         bpy.ops.object.select_all(action='DESELECT')
         select_hierarchy(obj)
         objects = bpy.context.selected_objects
@@ -496,20 +537,24 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",pre
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
             for idx, name in df_element_names.items():
                 if file_name == name:
+                    psets_list=return_Psets(psets_columns,idx)
+                    if len(psets_list)>0:
+                        psets=psets_list
                     if df_predefined_type[idx]!="nan":
                         predefined_type=df_predefined_type[idx]
                     if df_object_type[idx]!="nan":
                         object_type=df_object_type[idx]
-                    object_to_iterate[object]={"IfcClass": df_ifc_class[idx], "PredefinedType": predefined_type, "ObjectType": object_type}
+                    object_to_iterate[object]={"IfcClass": df_ifc_class[idx], "PredefinedType": predefined_type, "ObjectType": object_type, "Psets": psets}
                     predefined_type="NOTDEFINED"
                     object_type=None
+                    psets=None
                     
         if ifc_entity=="IfcElementAssembly":
             addIfcElementAssembly(obj,completed_folder_path,father)
             new_ifc_assembly=bpy.context.view_layer.objects.active
         else:
-            addIfcElement(obj,ifc_entity,predefined_type,object_type,father)
+            addIfcElement(obj,ifc_entity,predefined_type,object_type,psets,father)
         if len(object_to_iterate)>0:
             for o in object_to_iterate:
                 print(object_to_iterate[o]["IfcClass"],object_to_iterate[o]["PredefinedType"],object_to_iterate[o]["ObjectType"],)
-                createIfcAssemblyTree(o,database_path,object_to_iterate[o]["IfcClass"],object_to_iterate[o]["PredefinedType"],object_to_iterate[o]["ObjectType"],new_ifc_assembly)
+                createIfcAssemblyTree(o,database_path,object_to_iterate[o]["IfcClass"],object_to_iterate[o]["PredefinedType"],object_to_iterate[o]["ObjectType"],object_to_iterate[o]["Psets"],new_ifc_assembly)
