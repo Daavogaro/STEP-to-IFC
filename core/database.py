@@ -329,9 +329,12 @@ def simplify_geometries_csv(obj,database_path):
                         new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data)
                         for collection in obj.users_collection:
                             collection.objects.link(new_obj)
+                        new_obj.matrix_world =joined_obj.matrix_world.copy()
                         # Reassign all the nodes to the new object
                         for child in children:
+                            old_world = child.matrix_world.copy()
                             child.parent = new_obj
+                            child.matrix_world = old_world
                         # Reassign the properties
                         bpy.data.objects.remove(joined_obj, do_unlink=True)
                         bpy.data.objects.remove(obj, do_unlink=True)
