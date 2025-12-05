@@ -382,7 +382,7 @@ def addIfcElementAssembly(obj,database_path,father=None):
         addIfcElement(obj,"IfcElementAssembly",father)
     # For the Nodes that are meshes with children (this shouldn't happen, but if the STEP model is messy it could happen)
     if obj.type == "MESH" and len(obj.children)>0:
-        print("_  _  _  _  _  _  _  _  _  _  _  _  _  _  _  ")
+        print("________________________________________________________________________")
         # We create a new IfcElementAssembly for the father mesh, but we create it empty, and then we convert the mesh in an IfcElement that is part of the IfcElementAssembly. In fact an IfcElementAssembly can't have geometry if it aggregates other elements
         original_name=obj.name
         bpy.context.scene.BIMRootProperties.ifc_product = 'IfcElement'
@@ -440,7 +440,7 @@ def addIfcElementAssembly(obj,database_path,father=None):
         bpy.context.view_layer.objects.active=new_ifc_assembly
     # For the Nodes that are not meshes, but empty objects with children
     else:    
-        print("_  _  _  _  _  _  _  _  _  _  _  _  _  _  _  ")
+        print("________________________________________________________________________")
         print(f"A new IfcElementAssembly for object: {obj.name}") # The print of the name is before the command because then it change name
         # These lines are for open the scene for add a new Ifc entity
         bpy.context.scene.BIMRootProperties.ifc_product = 'IfcElement'
@@ -464,13 +464,14 @@ def addIfcElementAssembly(obj,database_path,father=None):
 
 
 # Function for adding IfcElement based on the CSV values 
-def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=None,psets=None, father=None):
+def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=None,psets=None, father=None,object_to_iterate=None):
+
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     # With this function if an object in the CSV has no Ifc Class value compiled, it won't be created and then it will be deleted.
     if not element_class == None:
-        print("________________________________________________________________________")
-        print(f"A new {element_class} - {predefined_type} for object: {obj.name}")
+        print("     _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _")
+        print(f"    A new {element_class} - {predefined_type} for object: {obj.name}")
         original_name=obj.name
         # This time we don't add a new IFC element, but we convert the mesh in an IfcElement
         bpy.ops.bim.assign_class(ifc_class=element_class)
@@ -478,37 +479,53 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
         new_ifc_element=bpy.context.view_layer.objects.active
         bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
         new_ifc_element.BIMAttributeProperties.attributes[1].string_value = original_name # Edit the Name attribute
-        new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = predefined_type # Edit the Predefined Type
+        if predefined_type != "NOTDEFINED":
+            new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = predefined_type # Edit the Predefined Type
         if object_type != None:
             if predefined_type == "USERDEFINED":
-                new_ifc_element.BIMAttributeProperties.attributes[3].string_value = object_type # Edit the Object Type
-                print(f"    With Object Type: {object_type}")
+                if object_type != None:
+                    new_ifc_element.BIMAttributeProperties.attributes[3].string_value = object_type # Edit the Object Type
+                    print(f"        With Object Type: {object_type}")
             else:
-                print(f"    Predefined Type is not USERDEFINED, so Object Type is not set")
+                print(f"        Predefined Type is not USERDEFINED, so Object Type is not set")
         bpy.ops.bim.edit_attributes() # Confirm the editing
         if not father == None:
-            bpy.ops.bim.enable_editing_aggregate()
-            new_ifc_element.BIMObjectAggregateProperties.relating_object = father
-            bpy.ops.bim.aggregate_assign_object(relating_object=father.BIMObjectProperties.ifc_definition_id)
+            if father.type != 'MESH':
+                bpy.ops.bim.enable_editing_aggregate()
+                new_ifc_element.BIMObjectAggregateProperties.relating_object = father
+                bpy.ops.bim.aggregate_assign_object(relating_object=father.BIMObjectProperties.ifc_definition_id)
             new_ifc_element.parent= father
-            print(f"    And its father is: {father.name}")
+            new_ifc_element.matrix_world = obj.matrix_world.copy()
+            print(f"        And its father is: {father.name}")
         if psets != None:
             # TODO Ci sarà da aggiungere anche dei controlli sull'applicabilitä dei Pset
             ifc_obj=ifcTool.Ifc.get_entity(new_ifc_element)
             for pset_name, properties in psets.items():
                 if pset_name.startswith("Pset_"):
                     ifc_pset=ifcTool.Ifc.run("pset.add_pset",product=ifc_obj,name=pset_name)
-                    print(f"    Adding Pset: {pset_name}")
+                    print(f"        Adding Pset: {pset_name}")
                     for prop,val in properties.items():
                         ifcTool.Ifc.run("pset.edit_pset",pset=ifc_pset,properties={prop:val})
-                        print(f"        Adding Property: {prop} with value: {val}")
+                        print(f"            Adding Property: {prop} with value: {val}")
                 if pset_name.startswith("Qto_"):
                     ifc_qto=ifcTool.Ifc.run("pset.add_qto",product=ifc_obj,name=pset_name)
-                    print(f"    Adding Qto: {pset_name}")
+                    print(f"        Adding Qto: {pset_name}")
                     for prop,val in properties.items():
                         ifcTool.Ifc.run("pset.edit_qto",qto=ifc_qto,properties={prop:val})
-                        print(f"        Adding Quantity: {prop} with value: {val}")
+                        print(f"            Adding Quantity: {prop} with value: {val}")
     bpy.ops.object.select_all(action='DESELECT')
+    if len(obj.children)>0:
+        print(obj.children)
+        for child in obj.children:
+            if object_to_iterate is not None:
+                for key, value in object_to_iterate.items():
+                    if child == key:                       
+                        addIfcElement(child,value["IfcClass"],value["PredefinedType"],value["ObjectType"],value["Psets"],new_ifc_element,object_to_iterate)
+                        
+                    
+
+
+
 
 def convert_value(v):
     try:
@@ -559,26 +576,38 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",pre
         for object in objects:
             parts = object.name.split(".")
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
+
             for idx, name in df_element_names.items():
                 if file_name == name:
-                    psets_list=return_Psets(psets_columns,idx)
-                    if len(psets_list)>0:
-                        psets=psets_list
-                    if df_predefined_type[idx]!="nan":
-                        predefined_type=df_predefined_type[idx]
-                    if df_object_type[idx]!="nan":
-                        object_type=df_object_type[idx]
-                    object_to_iterate[object]={"IfcClass": df_ifc_class[idx], "PredefinedType": predefined_type, "ObjectType": object_type, "Psets": psets}
-                    predefined_type="NOTDEFINED"
-                    object_type=None
-                    psets=None
-                    
+
+                    # LOCAL VARIABLES — each object gets its own clean set
+                    local_predefined = "NOTDEFINED"
+                    local_objecttype = None
+                    local_psets = None
+
+                    psets_list = return_Psets(psets_columns, idx)
+                    if len(psets_list) > 0:
+                        local_psets = psets_list
+
+                    if df_predefined_type[idx] != "nan":
+                        local_predefined = df_predefined_type[idx]
+
+                    if df_object_type[idx] != "nan":
+                        local_objecttype = df_object_type[idx]
+
+                    # save clean values
+                    object_to_iterate[object] = {
+                        "IfcClass": df_ifc_class[idx],
+                        "PredefinedType": local_predefined,
+                        "ObjectType": local_objecttype,
+                        "Psets": local_psets
+                    }         
         if ifc_entity=="IfcElementAssembly":
             addIfcElementAssembly(obj,completed_folder_path,father)
-            new_ifc_assembly=bpy.context.view_layer.objects.active
+            parent_ifc_obj = bpy.context.view_layer.objects.active
         else:
-            addIfcElement(obj,ifc_entity,predefined_type,object_type,psets,father)
+            addIfcElement(obj,ifc_entity,predefined_type,object_type,psets,father,object_to_iterate)
+            parent_ifc_obj = bpy.context.view_layer.objects.active
         if len(object_to_iterate)>0:
             for o in object_to_iterate:
-                print(object_to_iterate[o]["IfcClass"],object_to_iterate[o]["PredefinedType"],object_to_iterate[o]["ObjectType"],)
-                createIfcAssemblyTree(o,database_path,object_to_iterate[o]["IfcClass"],object_to_iterate[o]["PredefinedType"],object_to_iterate[o]["ObjectType"],object_to_iterate[o]["Psets"],new_ifc_assembly)
+                createIfcAssemblyTree(o,database_path,object_to_iterate[o]["IfcClass"],object_to_iterate[o]["PredefinedType"],object_to_iterate[o]["ObjectType"],object_to_iterate[o]["Psets"],parent_ifc_obj)
