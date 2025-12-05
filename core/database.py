@@ -376,10 +376,10 @@ def simplify_geometries_csv(obj,database_path):
         print(f"No CSV found for '{obj.name}' at {file_path}")
 
 # Function for adding IfcElementAssembly based on the CSV values
-def addIfcElementAssembly(obj,database_path,father=None):
+def addIfcElementAssembly(obj,database_path,father=None,predefined_type="NOTDEFINED", object_type=None,psets=None):
     # For the Nodes that are leafs and they are IfcAssemblies without children. This should not happen, but if the STEP model is messy it could happen
     if obj.type == "MESH" and len(obj.children)==0:
-        addIfcElement(obj,"IfcElementAssembly",father)
+        addIfcElement(obj,"IfcElementAssembly",predefined_type,object_type,psets,father,None)
     # For the Nodes that are meshes with children (this shouldn't happen, but if the STEP model is messy it could happen)
     if obj.type == "MESH" and len(obj.children)>0:
         print("________________________________________________________________________")
@@ -429,14 +429,29 @@ def addIfcElementAssembly(obj,database_path,father=None):
                 df_filtered = df[df["Product in DB"] == "Yes"]
                 element_names = df_filtered["Element Name"].dropna().astype(str).to_dict()
                 ifc_class = df_filtered["IfcClass"].astype(str).to_dict()
+                predefined_type = df_filtered["PredefinedType"].astype(str).to_dict()
+                object_type = df_filtered["ObjectType"].astype(str).to_dict()
+                df_psets = [col for col in df.columns if col.startswith("Pset_") or col.startswith("Qto_")]
+                psets_columns=df_filtered[df_psets].astype(str).to_dict()
                 child_parts = child.name.split(".")
                 child_name=".".join(child_parts[:-1]) if len(child_parts) > 1 else child.name
                 for idx, name in element_names.items():
                     if child_name == name:
+                        local_predefined = "NOTDEFINED"
+                        local_objecttype = None
+                        local_psets = None
+                        psets_list = return_Psets(psets_columns, idx)
+                        if len(psets_list) > 0:
+                            local_psets = psets_list
+                        if predefined_type[idx] != "nan":
+                            local_predefined = predefined_type[idx]
+                        if object_type[idx] != "nan":
+                            local_objecttype = object_type[idx]
+
                         if ifc_class[idx]=="IfcElementAssembly":
-                            addIfcElementAssembly(child,database_path,new_ifc_assembly)
+                            addIfcElementAssembly(child,database_path,new_ifc_assembly,local_predefined,local_objecttype,local_psets)
                         else:
-                            addIfcElement(child,ifc_class[idx],new_ifc_assembly)
+                            addIfcElement(child,ifc_class[idx],local_predefined,local_objecttype,local_psets,new_ifc_assembly)
         bpy.context.view_layer.objects.active=new_ifc_assembly
     # For the Nodes that are not meshes, but empty objects with children
     else:    
@@ -513,14 +528,18 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
                     for prop,val in properties.items():
                         ifcTool.Ifc.run("pset.edit_qto",qto=ifc_qto,properties={prop:val})
                         print(f"            Adding Quantity: {prop} with value: {val}")
-    bpy.ops.object.select_all(action='DESELECT')
-    if len(obj.children)>0:
-        print(obj.children)
-        for child in obj.children:
-            if object_to_iterate is not None:
-                for key, value in object_to_iterate.items():
-                    if child == key:                       
-                        addIfcElement(child,value["IfcClass"],value["PredefinedType"],value["ObjectType"],value["Psets"],new_ifc_element,object_to_iterate)
+        if element_class=="IfcDistributionElement":
+            bpy.ops.bim.add_port()
+
+        bpy.ops.object.select_all(action='DESELECT')
+        if len(obj.children)>0:
+            print(obj.children)
+            for child in obj.children:
+                if object_to_iterate is not None:
+                    for key, value in object_to_iterate.items():
+                        if child == key:                       
+                            addIfcElement(child,value["IfcClass"],value["PredefinedType"],value["ObjectType"],value["Psets"],new_ifc_element,object_to_iterate)
+
                         
                     
 
