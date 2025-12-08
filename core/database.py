@@ -3,6 +3,8 @@ import csv
 import pandas as pd  # Library for handling CSV files
 import bpy
 import bonsai.tool.ifc as ifcTool
+import ifcopenshell
+import bonsai.tool as tool
 from mathutils import Vector
 from . import importCSV
 from . import deleteSmallElements
@@ -477,6 +479,23 @@ def addIfcElementAssembly(obj,database_path,father=None,predefined_type="NOTDEFI
             # Recreate the tree in the Blender Menu giving the parent relation to the Blender Object. Is not necessary for the IFC sake, but is useful for the Blender visualization
             new_ifc_assembly.parent = father 
 
+def create_empty_at_cursor_with_element_orientation( element: ifcopenshell.entity_instance) -> bpy.types.Object:
+    element_obj = tool.Ifc.get_object(element)
+    name="Port_" + element.Name
+    obj = bpy.data.objects.new(name, None)
+    obj.matrix_world = element_obj.matrix_world.copy()
+    obj.matrix_world.translation = bpy.context.scene.cursor.matrix.translation
+    # bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+def add_port(ifc: type[tool.Ifc], system: type[tool.System], element: ifcopenshell.entity_instance) -> bpy.types.Object:
+    system.load_ports(element, system.get_ports(element))
+    obj = create_empty_at_cursor_with_element_orientation(element)
+    port = system.run_root_assign_class(obj=obj, ifc_class="IfcDistributionPort", should_add_representation=False)
+    ifc.run("system.assign_port", element=element, port=port)
+    return obj
+
+
 
 # Function for adding IfcElement based on the CSV values 
 def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=None,psets=None, father=None,object_to_iterate=None):
@@ -494,16 +513,28 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
         new_ifc_element=bpy.context.view_layer.objects.active
         bpy.ops.bim.enable_editing_attributes(mass_operation=False) # Enable the editing attributes mode
         new_ifc_element.BIMAttributeProperties.attributes[1].string_value = original_name # Edit the Name attribute
-        if predefined_type != "NOTDEFINED":
-            new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = predefined_type # Edit the Predefined Type
-        if object_type != None:
-            if predefined_type == "USERDEFINED":
-                if object_type != None:
-                    new_ifc_element.BIMAttributeProperties.attributes[3].string_value = object_type # Edit the Object Type
-                    print(f"        With Object Type: {object_type}")
-            else:
-                print(f"        Predefined Type is not USERDEFINED, so Object Type is not set")
-        bpy.ops.bim.edit_attributes() # Confirm the editing
+        if element_class == "IfcElementAssembly":
+            if predefined_type != "NOTDEFINED":
+                new_ifc_element.BIMAttributeProperties.attributes[6].enum_value = predefined_type # Edit the Predefined Type
+            if object_type != None:
+                if predefined_type == "USERDEFINED":
+                    if object_type != None:
+                        new_ifc_element.BIMAttributeProperties.attributes[3].string_value = object_type # Edit the Object Type
+                        print(f"        With Object Type: {object_type}")
+                else:
+                    print(f"        Predefined Type is not USERDEFINED, so Object Type is not set")
+            bpy.ops.bim.edit_attributes() # Confirm the editing
+        else:
+            if predefined_type != "NOTDEFINED":
+                new_ifc_element.BIMAttributeProperties.attributes[5].enum_value = predefined_type # Edit the Predefined Type
+            if object_type != None:
+                if predefined_type == "USERDEFINED":
+                    if object_type != None:
+                        new_ifc_element.BIMAttributeProperties.attributes[3].string_value = object_type # Edit the Object Type
+                        print(f"        With Object Type: {object_type}")
+                else:
+                    print(f"        Predefined Type is not USERDEFINED, so Object Type is not set")
+            bpy.ops.bim.edit_attributes() # Confirm the editing
         if not father == None:
             if father.type != 'MESH':
                 bpy.ops.bim.enable_editing_aggregate()
@@ -512,9 +543,10 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
             new_ifc_element.parent= father
             new_ifc_element.matrix_world = obj.matrix_world.copy()
             print(f"        And its father is: {father.name}")
+        ifc_obj=ifcTool.Ifc.get_entity(new_ifc_element)
         if psets != None:
             # TODO Ci sarà da aggiungere anche dei controlli sull'applicabilitä dei Pset
-            ifc_obj=ifcTool.Ifc.get_entity(new_ifc_element)
+            
             for pset_name, properties in psets.items():
                 if pset_name.startswith("Pset_"):
                     ifc_pset=ifcTool.Ifc.run("pset.add_pset",product=ifc_obj,name=pset_name)
@@ -529,7 +561,15 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
                         ifcTool.Ifc.run("pset.edit_qto",qto=ifc_qto,properties={prop:val})
                         print(f"            Adding Quantity: {prop} with value: {val}")
         if element_class=="IfcDistributionElement":
-            bpy.ops.bim.add_port()
+            
+            port=add_port(tool.Ifc,tool.System,ifc_obj)
+            # bpy.ops.bim.enable_editing_attributes(mass_operation=False)
+            # port.BIMAttributeProperties.attributes[1].string_value = f"Port_{original_name}"
+            # bpy.ops.bim.edit_attributes()
+            
+            port.parent=new_ifc_element
+            port.matrix_world = new_ifc_element.matrix_world.copy()
+            
 
         bpy.ops.object.select_all(action='DESELECT')
         if len(obj.children)>0:
