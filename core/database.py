@@ -348,6 +348,11 @@ def simplify_geometries_csv(obj,database_path):
                             new_obj["LevelOfDetail"] = level
                     else:
                         # If the STEP model is well organized, sobsitute the empty father node with the joined mesh
+                        if len(children)>0:
+                            for child in children:
+                                old_world = child.matrix_world.copy()
+                                child.parent = joined_obj
+                                child.matrix_world = old_world
                         bpy.data.objects.remove(obj, do_unlink=True)
                         joined_obj.name = old_name
                         joined_obj.data.name = old_name
@@ -499,7 +504,6 @@ def add_port(ifc: type[tool.Ifc], system: type[tool.System], element: ifcopenshe
 
 # Function for adding IfcElement based on the CSV values 
 def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=None,psets=None, father=None,object_to_iterate=None):
-
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     # With this function if an object in the CSV has no Ifc Class value compiled, it won't be created and then it will be deleted.
@@ -561,12 +565,7 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
                         ifcTool.Ifc.run("pset.edit_qto",qto=ifc_qto,properties={prop:val})
                         print(f"            Adding Quantity: {prop} with value: {val}")
         if element_class=="IfcDistributionElement":
-            
             port=add_port(tool.Ifc,tool.System,ifc_obj)
-            # bpy.ops.bim.enable_editing_attributes(mass_operation=False)
-            # port.BIMAttributeProperties.attributes[1].string_value = f"Port_{original_name}"
-            # bpy.ops.bim.edit_attributes()
-            
             port.parent=new_ifc_element
             port.matrix_world = new_ifc_element.matrix_world.copy()
             
@@ -660,7 +659,8 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",pre
                         "PredefinedType": local_predefined,
                         "ObjectType": local_objecttype,
                         "Psets": local_psets
-                    }         
+                    } 
+        print(object_to_iterate)        
         if ifc_entity=="IfcElementAssembly":
             addIfcElementAssembly(obj,completed_folder_path,father)
             parent_ifc_obj = bpy.context.view_layer.objects.active
