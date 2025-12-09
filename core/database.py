@@ -1,5 +1,4 @@
 import os
-import csv
 import pandas as pd  # Library for handling CSV files
 import bpy
 import bonsai.tool.ifc as ifcTool
@@ -8,17 +7,19 @@ import bonsai.tool as tool
 from mathutils import Vector
 from . import importCSV
 from . import deleteSmallElements
+from odf.opendocument import OpenDocumentSpreadsheet
+from odf.style import Style, TextProperties, TableCellProperties
+from odf.table import Table, TableRow, TableCell
+from odf.text import P
+from odf.opendocument import load
 
 # TODO: Controllare se servono tutte le sostituzioni di caratteri
 # TODO: Controllare che ci siano solo le funzioni che servono
 
-def print_rows(obj, written_names=None,csv_changed=False):
+def print_rows(obj, written_names=None,ods_changed=False):
     # Written names is a set that contains the names already written in the CSV, to avoid duplicates
     if written_names is None:
         written_names = set()
-    # Clean and normalize name
-    old_name = obj.name
-    obj.name = old_name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
     parts = obj.name.split(".")
     base_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
     level = obj.get("LevelOfDetail", None)
@@ -28,97 +29,233 @@ def print_rows(obj, written_names=None,csv_changed=False):
     if not obj.children:
         if base_name not in written_names: # If is not already written
             written_names.add(base_name)
-            csv_changed=True
+            ods_changed=True
             if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active: # If JoinChildren is True and is not the active object
-                row = [base_name, "Yes", level,"","" if level else ""]
+                row = [base_name, "Yes", level,"","","","","","",""  if level else ""]
                 rows.append(row)
             else:
-                rows.append([base_name])
-        return rows, csv_changed 
+                row = [base_name, "","","","","","","","",""]
+                rows.append(row)
+        return rows, ods_changed 
 
     # For the nodes with JoinChildren True (non-leaf)
     if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active:
         print(f"The active obj is {bpy.context.view_layer.objects.active.name} and the object is {obj.name}")
         if base_name not in written_names:
-            row = [base_name, "Yes", level,"","" if level else ""]
+            row = [base_name, "Yes", level,"","","","","","","" if level else ""]
             rows.append(row)
-            csv_changed=True
+            ods_changed=True
             written_names.add(base_name)
-        return rows,csv_changed
+        return rows,ods_changed
 
     # For the recursion case
     for child in obj.children:
-        child_rows, child_changed = print_rows(child, written_names, csv_changed)
+        child_rows, child_changed = print_rows(child, written_names, ods_changed)
         rows.extend(child_rows)
         if child_changed:
-            csv_changed = True
+            ods_changed = True
 
-    return rows,csv_changed
+    return rows,ods_changed
 
 
-def create_or_find_csv(obj, database_path):
-    # Replace not allowed characters in object name
-    obj.name = obj.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
+
+def create_or_find_ods(obj, database_path):
     parts = obj.name.split(".")
     # Select only the base name without the progression number that Blender/CATIA adds automatically
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
     # Process this object if JoinChildren True
     if obj.get("JoinChildren", False) is True:
-        completed_file_path = os.path.join(database_path, "Completed", f"{file_name}.csv") # Path to the completed CSV file
-        to_be_completed_file_path = os.path.join(database_path, "To be completed", f"{file_name}.csv") # Path to the "to be completed" CSV file
-        # If the completed CSV exists in the completed folder
+        completed_file_path = os.path.join(database_path, "Completed", f"{file_name}.ods") # Path to the completed ODS file
+        to_be_completed_file_path = os.path.join(database_path, "To be completed", f"{file_name}.ods") # Path to the "to be completed" ODS file
+        # ODS Styles
+        header_style = Style(name="HeaderStyle", family="table-cell")
+        header_style.addElement(TextProperties(fontweight="bold", color="ffffff"))
+        header_style.addElement(TableCellProperties(backgroundcolor="#181F1C",borderbottom="1pt solid #000000")) 
+        cell_style_normal = Style(name="AutoCompiled", family="table-cell")
+        cell_style_normal.addElement(TableCellProperties(borderbottom="0.05pt solid #000000"))
+        cell_style_normal_changed = Style(name="AutoCompiled_Changed", family="table-cell")
+        cell_style_normal_changed.addElement(TableCellProperties(borderbottom="0.05pt solid #000000"))
+        cell_style_normal_changed.addElement(TextProperties(color="#ff0000"))  
+        cell_style_gray = Style(name="DoNotCompile", family="table-cell")
+        cell_style_gray.addElement(TableCellProperties(backgroundcolor="#ced0ce",borderbottom="0.05pt solid #000000")) 
+        cell_style_green = Style(name="CompileMandatory", family="table-cell")
+        cell_style_green.addElement(TableCellProperties(backgroundcolor="#44803C",borderbottom="0.05pt solid #000000"))                
+        cell_style_light_green = Style(name="CompileOptional", family="table-cell")
+        cell_style_light_green.addElement(TableCellProperties(backgroundcolor="#79BC70",borderbottom="0.05pt solid #000000"))
+        column_nodes_styles = [
+            cell_style_normal,    # col 0
+            cell_style_normal,    # col 1
+            cell_style_normal,    # col 2 (if needed)
+            cell_style_gray,      # col 3
+            cell_style_gray,      # col 4
+            cell_style_green,     # col 5
+            cell_style_light_green # col 6+
+        ]
+        column_leaves_style = [
+            cell_style_normal,    # col 0
+            cell_style_gray,    # col 1
+            cell_style_gray,    # col 2 (if needed)
+            cell_style_green,      # col 3
+            cell_style_green,      # col 4
+            cell_style_gray,     # col 5+
+        ]
+        column_nodes_styles_changed = [
+            cell_style_normal_changed,    # col 0
+            cell_style_normal_changed,    # col 1
+            cell_style_normal_changed,    # col 2 (if needed)
+            cell_style_gray,      # col 3
+            cell_style_gray,      # col 4
+            cell_style_green,     # col 5
+            cell_style_light_green # col 6+
+        ]
+        column_leaves_style_changed = [
+            cell_style_normal_changed,    # col 0
+            cell_style_gray,    # col 1
+            cell_style_gray,    # col 2 (if needed)
+            cell_style_green,      # col 3
+            cell_style_green,      # col 4
+            cell_style_gray,     # col 5+
+        ]
+        
+        
+        # If the completed ODS exists in the completed folder
         if os.path.exists(completed_file_path): 
             print(f"Already completed: {completed_file_path}")
-            # Read existing CSV to add new rows if there are new objects
-            # ! Still problems with new rows addition: in the file X.csv the second time it runs it write a X row, even if it should not
-            df = pd.read_csv(completed_file_path,encoding="utf-8",sep=";",engine="python")
-            old_rows = df.values.tolist()  # Converts all existing CSV rows to list of lists
+            # Read existing ODS to add new rows if there are new objects
+            doc = load(completed_file_path)
+            df = pd.read_excel(completed_file_path, engine="odf")
+            old_rows = df.values.tolist()  # Converts all existing ODS rows to list of lists
             old_rows = df.fillna("").values.tolist()  # Replace NaN with empty string
             # Check if "Element Name" column exists
             if "Element Name" not in df.columns:
                 print(f"{completed_file_path} has not Element Name column")
                 return
             element_names = df["Element Name"].dropna().astype(str).tolist()
+            # Create a new ODS and append the styles
+            doc = OpenDocumentSpreadsheet()
+            doc.styles.addElement(header_style)
+            doc.styles.addElement(cell_style_normal)
+            doc.styles.addElement(cell_style_normal_changed)
+            doc.styles.addElement(cell_style_gray)
+            doc.styles.addElement(cell_style_green)
+            doc.styles.addElement(cell_style_light_green)
+            # Create a table
+            table = Table(name=file_name)
+            doc.spreadsheet.addElement(table)
+            # Header row
+            header_row = TableRow()
+            standard_header_row= ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
+            for header in standard_header_row:
+                cell = TableCell(stylename=header_style, valuetype="string") 
+                cell.addElement(P(text=header))
+                header_row.addElement(cell)
+            table.addElement(header_row)
             bpy.context.view_layer.objects.active=obj
-            rows, csv_changed = print_rows(obj,set(element_names)) # It returns the new rows to add and if there was any change
+            new_rows, ods_changed = print_rows(obj,set(element_names)) # It returns the new rows to add and if there was any change
             # If there are new rows, append them to the completed CSV
-            if csv_changed is True:
-                print(obj.name)
-                with open(to_be_completed_file_path, 'w', newline='', encoding='utf-8') as file:
-                    writer = csv.writer(file, delimiter=';')
-                    all_rows = old_rows + rows
-                    # Header
-                    writer.writerow(
-                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
-                    )
-                    writer.writerows(all_rows)
+            if ods_changed is True:
+                print(f"New rows {new_rows}")
+                for row_data in old_rows:
+                    row = TableRow()
+                    if len(row_data)>1:
+                        if str(row_data[1]).strip().lower() == "yes":
+                            for c_i, value in enumerate(row_data):
+                                # Falls back to last style if row has more columns than map
+                                style = column_nodes_styles[c_i] if c_i < len(column_nodes_styles) else column_nodes_styles[-1]
+                                cell = TableCell(stylename=style, valuetype="string")
+                                cell.addElement(P(text=str(value)))
+                                row.addElement(cell)
+                        else:
+                            for c_i, value in enumerate(row_data):
+                                # Falls back to last style if row has more columns than map
+                                style = column_leaves_style[c_i] if c_i < len(column_leaves_style) else column_leaves_style[-1]
+                                cell = TableCell(stylename=style, valuetype="string")
+                                cell.addElement(P(text=str(value)))
+                                row.addElement(cell)
+                        table.addElement(row)
+                for row_data in new_rows:
+                    row = TableRow()
+                    if str(row_data[1]).strip().lower() == "yes":
+                        for c_i, value in enumerate(row_data):
+                            # Falls back to last style if row has more columns than map
+                            style = column_nodes_styles_changed[c_i] if c_i < len(column_nodes_styles_changed) else column_nodes_styles_changed[-1]
+                            cell = TableCell(stylename=style, valuetype="string")
+                            cell.addElement(P(text=str(value)))
+                            row.addElement(cell)
+                    else:
+                        for c_i, value in enumerate(row_data):
+                            # Falls back to last style if row has more columns than map
+                            style = column_leaves_style_changed[c_i] if c_i < len(column_leaves_style_changed) else column_leaves_style_changed[-1]
+                            cell = TableCell(stylename=style, valuetype="string")
+                            cell.addElement(P(text=str(value)))
+                            row.addElement(cell)
+                    table.addElement(row)
+                doc.save(to_be_completed_file_path)
+#                with open(to_be_completed_file_path, 'w', newline='', encoding='utf-8') as file:
+#                    writer = csv.writer(file, delimiter=';')
+#                    all_rows = old_rows + rows
+#                    # Header
+#                    writer.writerow(
+#                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
+#                    )
+#                    writer.writerows(all_rows)
         # If the completed CSV does not exist, create a new "to be completed" CSV    
         else:
             if not os.path.exists(to_be_completed_file_path):
-                 with open(to_be_completed_file_path, 'w', newline='', encoding='utf-8') as file:
-                    writer = csv.writer(file, delimiter=';')
-                    bpy.context.view_layer.objects.active=obj
-                    # Header
-                    writer.writerow(
-                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
-                    )
-                    # Data rows
-                    rows, csv_changed = print_rows(obj)
-                    writer.writerows(rows)
+                doc = OpenDocumentSpreadsheet()
+                doc.styles.addElement(header_style)
+                doc.styles.addElement(cell_style_normal)
+                doc.styles.addElement(cell_style_gray)
+                doc.styles.addElement(cell_style_green)
+                doc.styles.addElement(cell_style_light_green)
+                # Create a table
+                table = Table(name=file_name)
+                doc.spreadsheet.addElement(table)
+                # Header row
+                header_row = TableRow()
+                standard_header_row= ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
+                for header in standard_header_row:
+                    cell = TableCell(stylename=header_style, valuetype="string")  # <- valuetype added
+                    cell.addElement(P(text=header))
+                    header_row.addElement(cell)
+                table.addElement(header_row)
+                bpy.context.view_layer.objects.active=obj
+                rows, ods_changed = print_rows(obj)
+                # Data rows
+                
+
+                for row_data in rows:
+                    row = TableRow()
+                    if str(row_data[1]).strip().lower() == "yes":
+                        for c_i, value in enumerate(row_data):
+                            # Falls back to last style if row has more columns than map
+                            style = column_nodes_styles[c_i] if c_i < len(column_nodes_styles) else column_nodes_styles[-1]
+                            cell = TableCell(stylename=style, valuetype="string")
+                            cell.addElement(P(text=str(value)))
+                            row.addElement(cell)
+                    else:
+                        for c_i, value in enumerate(row_data):
+                            # Falls back to last style if row has more columns than map
+                            style = column_leaves_style[c_i] if c_i < len(column_leaves_style) else column_leaves_style[-1]
+                            cell = TableCell(stylename=style, valuetype="string")
+                            cell.addElement(P(text=str(value)))
+                            row.addElement(cell)
+                    table.addElement(row)
+                doc.save(to_be_completed_file_path)
 
     # Iterate through children
     for child in obj.children:
-        create_or_find_csv(child, database_path)
+        create_or_find_ods(child, database_path)
 
 # Function to control if the object is in the database and set JoinChildren and LOD properties
 def control_database(obj,database_path):
     completed_folder_path = os.path.join(database_path, "Completed")
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
-    file_path = os.path.join(completed_folder_path, f"{file_name}.csv")
+    file_path = os.path.join(completed_folder_path, f"{file_name}.ods")
     if os.path.exists(file_path):
         # Read existing CSV to get the simplification info
-        df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
+        df = pd.read_excel(file_path,engine="odf")
         # Now we want to select only the nodes of our assembly
         if "Product in DB" not in df.columns:
             return
@@ -191,11 +328,11 @@ def simplify_geometries_csv(obj,database_path):
     # Select only the base name without the progression number that Blender/CATIA adds automatically
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
-    file_path = os.path.join(completed_folder_path, f"{file_name}.csv")
+    file_path = os.path.join(completed_folder_path, f"{file_name}.ods")
     # If the completed CSV exists in the completed folder
     if os.path.exists(file_path):
         # Read existing CSV to get the simplification info
-        df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
+        df = pd.read_excel(file_path,engine="odf")
         # Now we want to select only the nodes of our assembly
         if "Product in DB" not in df.columns:
             return
@@ -428,9 +565,9 @@ def addIfcElementAssembly(obj,database_path,father=None,predefined_type="NOTDEFI
         for child in new_ifc_assembly_part.children:
             parts = original_name.split(".")
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else original_name
-            file_path = os.path.join(database_path, f"{file_name}.csv")
+            file_path = os.path.join(database_path, f"{file_name}.ods")
             if os.path.exists(file_path):
-                df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
+                df = pd.read_excel(file_path,engine="odf")
                 if "Product in DB" not in df.columns:
                     return
                 df_filtered = df[df["Product in DB"] == "Yes"]
@@ -612,9 +749,9 @@ def createIfcAssemblyTree(obj,database_path, ifc_entity="IfcElementAssembly",pre
     completed_folder_path = os.path.join(database_path, "Completed")
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
-    file_path = os.path.join(completed_folder_path, f"{file_name}.csv")
+    file_path = os.path.join(completed_folder_path, f"{file_name}.ods")
     if os.path.exists(file_path):
-        df = pd.read_csv(file_path, encoding="utf-8", delimiter=";")
+        df = pd.read_excel(file_path,engine="odf")
         if "Product in DB" not in df.columns:
             return
         df_filtered = df[df["Product in DB"] == "Yes"]

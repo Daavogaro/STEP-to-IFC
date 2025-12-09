@@ -559,7 +559,7 @@ class AssignGroupingPropertiesDatabasePath_Runscript(bpy.types.Operator):
                 os.makedirs(folder_path, exist_ok=True)
             active_obj = bpy.context.view_layer.objects.active
             if active_obj:
-                database.create_or_find_csv(active_obj, database_path)
+                database.create_or_find_ods(active_obj, database_path)
                 bpy.context.view_layer.objects.active = active_obj
             else:
                 print("No active object selected")
