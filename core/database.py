@@ -12,6 +12,7 @@ from odf.style import Style, TextProperties, TableCellProperties
 from odf.table import Table, TableRow, TableCell
 from odf.text import P
 from odf.opendocument import load
+import mathutils
 
 # TODO: Controllare se servono tutte le sostituzioni di caratteri
 # TODO: Controllare che ci siano solo le funzioni che servono
@@ -621,13 +622,31 @@ def addIfcElementAssembly(obj,database_path,father=None,predefined_type="NOTDEFI
             # Recreate the tree in the Blender Menu giving the parent relation to the Blender Object. Is not necessary for the IFC sake, but is useful for the Blender visualization
             new_ifc_assembly.parent = father 
 
+def get_world_bbox_center(obj: bpy.types.Object) -> mathutils.Vector:
+    # obj.bound_box gives 8 corners in local coordinates
+    corners = [mathutils.Vector(corner) for corner in obj.bound_box]
+
+    # Convert each corner to world coordinate
+    world_corners = [obj.matrix_world @ corner for corner in corners]
+
+    # Average of all corners
+    center = sum(world_corners, mathutils.Vector()) / 8
+    return center
+def parent_preserve_world(child, parent):
+    world_m = child.matrix_world.copy()
+    child.parent = parent
+    child.matrix_parent_inverse = parent.matrix_world.inverted()
+    child.matrix_world = world_m
+    child.rotation_euler = parent.rotation_euler
+    
+
 def create_empty_at_cursor_with_element_orientation( element: ifcopenshell.entity_instance) -> bpy.types.Object:
     element_obj = tool.Ifc.get_object(element)
     name="Port_" + element.Name
     obj = bpy.data.objects.new(name, None)
     obj.matrix_world = element_obj.matrix_world.copy()
-    obj.matrix_world.translation = bpy.context.scene.cursor.matrix.translation
-    # bpy.context.scene.collection.objects.link(obj)
+    center = get_world_bbox_center(element_obj)
+    obj.matrix_world.translation = center
     return obj
 
 def add_port(ifc: type[tool.Ifc], system: type[tool.System], element: ifcopenshell.entity_instance) -> bpy.types.Object:
@@ -636,7 +655,6 @@ def add_port(ifc: type[tool.Ifc], system: type[tool.System], element: ifcopenshe
     port = system.run_root_assign_class(obj=obj, ifc_class="IfcDistributionPort", should_add_representation=False)
     ifc.run("system.assign_port", element=element, port=port)
     return obj
-
 
 
 # Function for adding IfcElement based on the CSV values 
@@ -703,13 +721,11 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
                         print(f"            Adding Quantity: {prop} with value: {val}")
         if element_class=="IfcDistributionElement":
             port=add_port(tool.Ifc,tool.System,ifc_obj)
-            port.parent=new_ifc_element
-            port.matrix_world = new_ifc_element.matrix_world.copy()
+            parent_preserve_world(port,new_ifc_element)
             
 
         bpy.ops.object.select_all(action='DESELECT')
         if len(obj.children)>0:
-            print(obj.children)
             for child in obj.children:
                 if object_to_iterate is not None:
                     for key, value in object_to_iterate.items():
