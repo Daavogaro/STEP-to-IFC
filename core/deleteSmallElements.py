@@ -14,7 +14,7 @@ def hideLeafWithNoMesh(obj):
 # This function hide all the meshes smaller than the variable "min_size"
 def hideSmallerThan(obj,min_size):
     if obj.type == 'MESH': # If the object is a mesh
-        if obj.get("JoinChildren") != True: # If the object has not the property "JoinChildren" set to True
+        if obj.get("Node for IFC conversion") != True: # If the object has not the property "Node for IFC conversion" set to True
             dimensions = obj.dimensions
             if dimensions.x < min_size and dimensions.y < min_size and dimensions.z < min_size: # And if the mesh has X, Y and Z dimension < than "min_size" then hide the object
                 obj.hide_set(True)

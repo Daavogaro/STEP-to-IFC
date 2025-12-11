@@ -2,7 +2,6 @@ import os
 import pandas as pd  # Library for handling CSV files
 import bpy
 import bonsai.tool.ifc as ifcTool
-# import bonsai.tool.geometries as ifcGeometries
 import ifcopenshell
 import bonsai.tool as tool
 from mathutils import Vector
@@ -32,7 +31,7 @@ def print_rows(obj, written_names=None,ods_changed=False):
         if base_name not in written_names: # If is not already written
             written_names.add(base_name)
             ods_changed=True
-            if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active: # If JoinChildren is True and is not the active object
+            if obj.get("Node for IFC conversion", False) is True and obj != bpy.context.view_layer.objects.active: # If Node for IFC conversion is True and is not the active object
                 row = [base_name, "Yes", level,"","","","","","",""  if level else ""]
                 rows.append(row)
             else:
@@ -40,8 +39,8 @@ def print_rows(obj, written_names=None,ods_changed=False):
                 rows.append(row)
         return rows, ods_changed 
 
-    # For the nodes with JoinChildren True (non-leaf)
-    if obj.get("JoinChildren", False) is True and obj != bpy.context.view_layer.objects.active:
+    # For the nodes with Node for IFC conversion True (non-leaf)
+    if obj.get("Node for IFC conversion", False) is True and obj != bpy.context.view_layer.objects.active:
         print(f"The active obj is {bpy.context.view_layer.objects.active.name} and the object is {obj.name}")
         if base_name not in written_names:
             row = [base_name, "Yes", level,"","","","","","","" if level else ""]
@@ -65,8 +64,8 @@ def create_or_find_ods(obj, database_path):
     parts = obj.name.split(".")
     # Select only the base name without the progression number that Blender/CATIA adds automatically
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
-    # Process this object if JoinChildren True
-    if obj.get("JoinChildren", False) is True:
+    # Process this object if Node for IFC conversion True
+    if obj.get("Node for IFC conversion", False) is True:
         completed_file_path = os.path.join(database_path, "Completed", f"{file_name}.ods") # Path to the completed ODS file
         to_be_completed_file_path = os.path.join(database_path, "To be completed", f"{file_name}.ods") # Path to the "to be completed" ODS file
         # ODS Styles
@@ -249,14 +248,14 @@ def create_or_find_ods(obj, database_path):
     for child in obj.children:
         create_or_find_ods(child, database_path)
 
-# Function to control if the object is in the database and set JoinChildren and LOD properties
+# Function to control if the object is in the database and set Node for IFC conversion and LOD properties
 def control_database(obj,database_path):
     completed_folder_path = os.path.join(database_path, "Completed")
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
     file_path = os.path.join(completed_folder_path, f"{file_name}.ods")
     if os.path.exists(file_path):
-        # Read existing CSV to get the simplification info
+        # Read existing ODS to get the simplification info
         df = pd.read_excel(file_path,engine="odf")
         # Now we want to select only the nodes of our assembly
         if "Product in DB" not in df.columns:
@@ -277,7 +276,7 @@ def control_database(obj,database_path):
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
             for idx, element_name in element_names.items():
                 if file_name == element_name:
-                    object["JoinChildren"]=True
+                    object["Node for IFC conversion"]=True
                     object["LevelOfDetail"] = df_lod_filtered[idx]
                     object_to_iterate.append(object)
         if len(object_to_iterate)>0: # If there are objects to iterate, call the function recursively
@@ -292,8 +291,8 @@ def find_meshes_inside(obj, array=None):
         array = []
     # active_root = bpy.context.view_layer.objects.active # Penso si possa eliminare
 
-    # Skip only this object if JoinChildren=True and not active root, in order to avoid to skip the entire subtree only because the first active object has JoinChildren=True
-    if obj.get("JoinChildren", False) is True and not obj==bpy.context.view_layer.objects.active:
+    # Skip only this object if Node for IFC conversion=True and not active root, in order to avoid to skip the entire subtree only because the first active object has Node for IFC conversion=True
+    if obj.get("Node for IFC conversion", False) is True and not obj==bpy.context.view_layer.objects.active:
         return
     else:
         if obj.type == 'MESH':
@@ -309,7 +308,7 @@ def find_children_meshes(obj, meshes=None):
         meshes = []
     
     for child in obj.children:
-        if child.get("JoinChildren", False): # It does not go deeper if JoinChildren is True
+        if child.get("Node for IFC conversion", False): # It does not go deeper if Node for IFC conversion is True
             continue  
         if child.type == "MESH":
             meshes.append(child)
@@ -371,7 +370,7 @@ def simplify_geometries_csv(obj,database_path):
                 level = obj.get("LevelOfDetail", None)
                 if level is not None:
                     bbox["LevelOfDetail"] = level
-                bbox["JoinChildren"]=True
+                bbox["Node for IFC conversion"]=True
                 bpy.data.objects.remove(obj, do_unlink=True)
             if obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH" :
                 parts = obj.name.split(".")
@@ -382,7 +381,7 @@ def simplify_geometries_csv(obj,database_path):
                     level = obj.get("LevelOfDetail", None)
                     if level is not None:
                         bbox["LevelOfDetail"] = level
-                    bbox["JoinChildren"]=True
+                    bbox["Node for IFC conversion"]=True
                     bpy.data.objects.remove(obj, do_unlink=True)
         # If the selected node is not a mesh, so it has children to process and to join, in order to create a leaf node
         else:
@@ -433,7 +432,7 @@ def simplify_geometries_csv(obj,database_path):
             # Select only the remaining meshes to join them
             meshes_to_join=[]
             for child in obj.children:
-                if child.get("JoinChildren", False) is True:
+                if child.get("Node for IFC conversion", False) is True:
                     continue
                 if child.type == 'MESH':
                     meshes_to_join.append(child)
@@ -464,10 +463,10 @@ def simplify_geometries_csv(obj,database_path):
                     joined_obj.matrix_world = world_matrix
                     children = obj.children
                     joined_children=[]
-                    # If in the children there are other nodes with JoinChildren True, we don't want to delete the father node (empty Blender object), with a mesh. So we substitute the father node with a mesh node of the joined elements, and as children we put the other joined meshes
+                    # If in the children there are other nodes with Node for IFC conversion True, we don't want to delete the father node (empty Blender object), with a mesh. So we substitute the father node with a mesh node of the joined elements, and as children we put the other joined meshes
                     # This way we keep the hierarchy when the STEP model is a little bit messy and all the parts are not properly grouped
                     for child in children:
-                        if child.type=="MESH" and child.get("JoinChildren", False) is True:
+                        if child.type=="MESH" and child.get("Node for IFC conversion", False) is True:
                             joined_children.append(child)
                     if len(joined_children)>0:
                         # Sobstitute the father node with a mesh node that contains the joined meshes
@@ -485,7 +484,7 @@ def simplify_geometries_csv(obj,database_path):
                         bpy.data.objects.remove(obj, do_unlink=True)
                         new_obj.name = old_name
                         new_obj.data.name = old_name
-                        new_obj["JoinChildren"]=True
+                        new_obj["Node for IFC conversion"]=True
                         new_obj.parent = parent
                         new_obj.matrix_world =world_matrix
                         if level is not None:
@@ -500,7 +499,7 @@ def simplify_geometries_csv(obj,database_path):
                         bpy.data.objects.remove(obj, do_unlink=True)
                         joined_obj.name = old_name
                         joined_obj.data.name = old_name
-                        joined_obj["JoinChildren"]=True
+                        joined_obj["Node for IFC conversion"]=True
                 else: # If there is not a parent, simply sobsitute the empty father node with the joined mesh
                     print(f"{obj} has not a father")
                     children = obj.children
@@ -515,7 +514,7 @@ def simplify_geometries_csv(obj,database_path):
                     bpy.data.objects.remove(obj, do_unlink=True)
                     new_obj.name = old_name
                     new_obj.data.name = old_name
-                    new_obj["JoinChildren"]=True
+                    new_obj["Node for IFC conversion"]=True
                     if level is not None:
                         new_obj["LevelOfDetail"] = level
             else: 

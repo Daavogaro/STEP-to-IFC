@@ -524,7 +524,7 @@ class AssignGroupingProperties_Runscript(bpy.types.Operator):
         try:
             if selected_objects:
                 for obj in selected_objects:
-                    obj["JoinChildren"] = True
+                    obj["Node for IFC conversion"] = True
                     obj["LevelOfDetail"] = lod
                     for area in bpy.context.screen.areas:
                         if area.type == 'PROPERTIES':
@@ -585,7 +585,7 @@ class AutoGroupDatabase_Runscript(bpy.types.Operator):
         active_obj = bpy.context.view_layer.objects.active
         try:
             if active_obj:
-                active_obj["JoinChildren"] = True
+                active_obj["Node for IFC conversion"] = True
                 database.control_database(active_obj, database_path)
             else:
                 self.report({'ERROR'}, "No objects selected.")
