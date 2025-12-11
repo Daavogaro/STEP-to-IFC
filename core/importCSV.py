@@ -41,7 +41,7 @@ def create_bbox(obj):
     obj.data.name = f"{original_mesh_name}_old"
     obj.name = f"{original_object_name}_old"
     # Get world-space bounding box corners
-    bbox_corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+    bbox_corners = obj.bound_box
 
     # Define the 8 vertices of the box
     verts = bbox_corners
@@ -62,7 +62,9 @@ def create_bbox(obj):
     mesh_data.update()
 
     bbox_obj = bpy.data.objects.new(original_object_name, mesh_data)
+    old_world_matrix = obj.matrix_world.copy()
     bbox_obj.parent = obj.parent
+    bbox_obj.matrix_world = old_world_matrix
      # Link the new cube to the same collection as the original object
     for collection in obj.users_collection:
         collection.objects.link(bbox_obj)

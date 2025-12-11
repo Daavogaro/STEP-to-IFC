@@ -2,6 +2,7 @@ import os
 import pandas as pd  # Library for handling CSV files
 import bpy
 import bonsai.tool.ifc as ifcTool
+# import bonsai.tool.geometries as ifcGeometries
 import ifcopenshell
 import bonsai.tool as tool
 from mathutils import Vector
@@ -420,8 +421,10 @@ def simplify_geometries_csv(obj,database_path):
                     remaining_meshes.append(mesh)
                     continue
             # Now we have the list of remaining meshes to join, we move them as children of the main object to keep the hierarchy
-            for mesh in remaining_meshes:    
+            for mesh in remaining_meshes:
+                wm= mesh.matrix_world.copy()    
                 mesh.parent=obj
+                mesh.matrix_world=wm
             # We delete all the hierarchy that not contains meshes anymore        
             deleteSmallElements.hideLeafWithNoMesh(obj)
             deleteSmallElements.hideParentsWithHiddenChildren(obj)
@@ -454,9 +457,11 @@ def simplify_geometries_csv(obj,database_path):
                 if level is not None:
                     joined_obj["LevelOfDetail"] = level
                 parent = obj.parent
+                world_matrix = joined_obj.matrix_world.copy()
                 # If there is a parent
                 if parent is not None:
                     joined_obj.parent = parent # TODO Controllare se serve o se è una riassegnazione inutile
+                    joined_obj.matrix_world = world_matrix
                     children = obj.children
                     joined_children=[]
                     # If in the children there are other nodes with JoinChildren True, we don't want to delete the father node (empty Blender object), with a mesh. So we substitute the father node with a mesh node of the joined elements, and as children we put the other joined meshes
@@ -466,10 +471,10 @@ def simplify_geometries_csv(obj,database_path):
                             joined_children.append(child)
                     if len(joined_children)>0:
                         # Sobstitute the father node with a mesh node that contains the joined meshes
-                        new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data)
+                        new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data.copy())
                         for collection in obj.users_collection:
                             collection.objects.link(new_obj)
-                        new_obj.matrix_world =joined_obj.matrix_world.copy()
+                        
                         # Reassign all the nodes to the new object
                         for child in children:
                             old_world = child.matrix_world.copy()
@@ -482,6 +487,7 @@ def simplify_geometries_csv(obj,database_path):
                         new_obj.data.name = old_name
                         new_obj["JoinChildren"]=True
                         new_obj.parent = parent
+                        new_obj.matrix_world =world_matrix
                         if level is not None:
                             new_obj["LevelOfDetail"] = level
                     else:
@@ -499,7 +505,6 @@ def simplify_geometries_csv(obj,database_path):
                     print(f"{obj} has not a father")
                     children = obj.children
                     new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data)
-                    new_obj.matrix_world =joined_obj.matrix_world.copy()
                     for collection in obj.users_collection:
                         collection.objects.link(new_obj)
                     for child in children:
@@ -622,31 +627,16 @@ def addIfcElementAssembly(obj,database_path,father=None,predefined_type="NOTDEFI
             # Recreate the tree in the Blender Menu giving the parent relation to the Blender Object. Is not necessary for the IFC sake, but is useful for the Blender visualization
             new_ifc_assembly.parent = father 
 
-def get_world_bbox_center(obj: bpy.types.Object) -> mathutils.Vector:
-    # obj.bound_box gives 8 corners in local coordinates
-    corners = [mathutils.Vector(corner) for corner in obj.bound_box]
 
-    # Convert each corner to world coordinate
-    world_corners = [obj.matrix_world @ corner for corner in corners]
-
-    # Average of all corners
-    center = sum(world_corners, mathutils.Vector()) / 8
-    return center
-def parent_preserve_world(child, parent):
-    world_m = child.matrix_world.copy()
-    child.parent = parent
-    child.matrix_parent_inverse = parent.matrix_world.inverted()
-    child.matrix_world = world_m
-    child.rotation_euler = parent.rotation_euler
     
 
 def create_empty_at_cursor_with_element_orientation( element: ifcopenshell.entity_instance) -> bpy.types.Object:
+    # Ensure BlenderBIM updates the placement first
     element_obj = tool.Ifc.get_object(element)
-    name="Port_" + element.Name
+    name = "Port_" + element.Name
     obj = bpy.data.objects.new(name, None)
+    # Now element_obj.matrix_world is correct
     obj.matrix_world = element_obj.matrix_world.copy()
-    center = get_world_bbox_center(element_obj)
-    obj.matrix_world.translation = center
     return obj
 
 def add_port(ifc: type[tool.Ifc], system: type[tool.System], element: ifcopenshell.entity_instance) -> bpy.types.Object:
@@ -720,8 +710,9 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
                         ifcTool.Ifc.run("pset.edit_qto",qto=ifc_qto,properties={prop:val})
                         print(f"            Adding Quantity: {prop} with value: {val}")
         if element_class=="IfcDistributionElement":
-            port=add_port(tool.Ifc,tool.System,ifc_obj)
-            parent_preserve_world(port,new_ifc_element)
+            port = add_port(tool.Ifc, tool.System, ifc_obj)
+            port.parent = new_ifc_element
+            port.matrix_parent_inverse = new_ifc_element.matrix_world.inverted()
             
 
         bpy.ops.object.select_all(action='DESELECT')
