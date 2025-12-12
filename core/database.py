@@ -365,14 +365,15 @@ def simplify_geometries_csv(obj,database_path):
         df_sim_filtered = df[df["MID: To be simplified"] == "Yes"]
         # If the selected node is a mesh itself (for objects that are already merged from other softwares), so it is a leaf node
         if obj.type == "MESH":
-            if obj.get("LevelOfDetail", False) == "LOW":
+            print(f"The object {obj.name} is a mesh itself")
+            if obj.get("LevelOfDetail") == "LOW":
                 bbox=importCSV.create_bbox(obj)
                 level = obj.get("LevelOfDetail", None)
                 if level is not None:
                     bbox["LevelOfDetail"] = level
                 bbox["Node for IFC conversion"]=True
                 bpy.data.objects.remove(obj, do_unlink=True)
-            if obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH" :
+            elif obj.get("LevelOfDetail", False) == "MEDIUM" or obj.get("LevelOfDetail", False) and not obj.get("LevelOfDetail", False) == "HIGH" :
                 parts = obj.name.split(".")
                 file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
                 to_simplify=df_sim_filtered["Element Name"].dropna().astype(str).tolist()
@@ -474,11 +475,7 @@ def simplify_geometries_csv(obj,database_path):
                         for collection in obj.users_collection:
                             collection.objects.link(new_obj)
                         
-                        # Reassign all the nodes to the new object
-                        for child in children:
-                            old_world = child.matrix_world.copy()
-                            child.parent = new_obj
-                            child.matrix_world = old_world
+
                         # Reassign the properties
                         bpy.data.objects.remove(joined_obj, do_unlink=True)
                         bpy.data.objects.remove(obj, do_unlink=True)
@@ -487,6 +484,11 @@ def simplify_geometries_csv(obj,database_path):
                         new_obj["Node for IFC conversion"]=True
                         new_obj.parent = parent
                         new_obj.matrix_world =world_matrix
+                        # Reassign all the nodes to the new object
+                        for child in children:
+                            old_world = child.matrix_world.copy()
+                            child.parent = new_obj
+                            child.matrix_world = old_world
                         if level is not None:
                             new_obj["LevelOfDetail"] = level
                     else:
@@ -712,6 +714,10 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
             port = add_port(tool.Ifc, tool.System, ifc_obj)
             port.parent = new_ifc_element
             port.matrix_parent_inverse = new_ifc_element.matrix_world.inverted()
+            if ifcTool.Ifc.get_schema() == "IFC2X3":
+                print("IFC2X3")
+            else:
+                print("IFC4 or later")
             
 
         bpy.ops.object.select_all(action='DESELECT')
