@@ -15,6 +15,13 @@ from .core import joinComplanarFaces_v1
 from .core import polygonReduction
 from .core import database
 
+
+csv_filepath = "" # Global variable to store CSV file path
+database_path=""  # Global variable to store the database path
+ifc_time_measure = 'NONE'  # Global variable to store the IFC time measure unit
+ifc_pressure_measure = 'NONE'  # Global variable to store the IFC pressure measure unit
+ifc_temperature_measure = 'NONE'  # Global variable to store the IFC temperature measure unit
+
 class MakeMeshesDataUniques_Runscript(bpy.types.Operator):
     bl_idname = "meshesunique.run_script"
     bl_label = "Make meshes data uniques"
@@ -153,8 +160,7 @@ class CSVPrint_Runscript(bpy.types.Operator):
         context.window_manager.fileselect_add(self) # Open file browser for directory selection
         return {'RUNNING_MODAL'} # Keep the operator running until user selects a folder
 
-# Global variable to store CSV file path
-csv_filepath = ""
+
 
 # Operator to import CSV
 class CSVImport_Runscript(bpy.types.Operator):
@@ -539,7 +545,7 @@ class AssignGroupingProperties_Runscript(bpy.types.Operator):
             return {'CANCELLED'}
         return {'FINISHED'}
     
-database_path=""  # Global variable to store the database path
+
 
 class AssignGroupingPropertiesDatabasePath_Runscript(bpy.types.Operator):
     bl_idname = "groupingproperties.databasepath"
@@ -572,9 +578,6 @@ class AutoGroupDatabase_Runscript(bpy.types.Operator):
     bl_idname = "database.autofill"
     bl_label = "Auto Group"
     bl_description = "Automatically group objects based on properties"
-      
-
-
     def execute(self, context):
         global database_path
         if not database_path or not os.path.isdir(database_path):
@@ -642,6 +645,86 @@ class ConvertMeshesInIFC_Runscript(bpy.types.Operator):
             self.report({'ERROR'}, f"Error in converting meshes: {e}")
             return {'CANCELLED'}
         return {'FINISHED'}
+    
+class IfcUnitsSet_RunScript(bpy.types.Operator):
+    bl_idname = "ifc.unitsset"
+    bl_label = "Set IFC Units"
+    bl_description = "Set the units for IFC export"
+    def execute(self, context):
+        global ifc_time_measure
+        global ifc_pressure_measure
+
+        ifc_measures=[]
+        ifc_time_measure = context.object.ifc_units_properties.time_units
+        ifc_measures.append(ifc_time_measure)
+        ifc_pressure_measure = context.object.ifc_units_properties.pressure_units
+        ifc_measures.append(ifc_pressure_measure)
+        ifc_temperature_measure = context.object.ifc_units_properties.temperature_units
+        ifc_measures.append(ifc_temperature_measure)
+        collection_units=bpy.context.scene.BIMUnitProperties.units
+        try:
+            for measure in ifc_measures:
+                print("________________________________")
+                print(f"Setting IFC unit for: {measure}")
+                if measure and measure!="NONE":
+                    parts=measure.split("_")
+                    measure_to_delete=[]
+                    for unit in collection_units:
+                        if unit.unit_type==parts[1]:
+                            measure_to_delete.append(unit)
+                    
+                    for unit in measure_to_delete:
+                        bpy.ops.bim.remove_unit(unit=unit.ifc_definition_id)
+                    if parts[0]=="SI":                             
+                        bpy.ops.bim.add_si_unit(unit_type=parts[1])
+
+                    elif parts[0]=="CB":
+                        bpy.ops.bim.add_conversion_based_unit(name=parts[2])
+                    elif parts[0]=="CBO":
+                        bpy.ops.bim.add_conversion_based_unit(name="fahrenheit")
+                        collection_units=bpy.context.scene.BIMUnitProperties.units
+                        new_unit = None
+                        for unit in collection_units:
+                            if unit.name==parts[2]:
+                                new_unit=unit
+                        if new_unit:
+                            bpy.ops.bim.enable_editing_unit(unit=new_unit.ifc_definition_id)
+                            if parts[1]=="THERMODYNAMICTEMPERATUREUNIT":
+                                bpy.context.scene.BIMUnitProperties.unit_attributes[0].string_value = "[0, 0, 0, 0, 1, 0, 0]"
+                                bpy.context.scene.BIMUnitProperties.unit_attributes[1].enum_value=parts[1]
+                                bpy.context.scene.BIMUnitProperties.unit_attributes[2].string_value = parts[2]
+                                if parts[2]=="celsius":
+                                    bpy.context.scene.BIMUnitProperties.unit_attributes[3].float_value = "273.15"
+                            bpy.ops.bim.edit_unit(unit=new_unit.ifc_definition_id)
+
+                    collection_units=bpy.context.scene.BIMUnitProperties.units
+                    new_unit = None
+                    for unit in collection_units:
+                        if unit.name==parts[2]:
+                            new_unit=unit
+                    print(f"New unit assigned: {new_unit}")
+                    if new_unit:
+                        print(f"Assigned unit: {new_unit.unit_type} - {new_unit.name}")
+                        bpy.ops.bim.assign_unit(unit=new_unit.ifc_definition_id)
+
+                        if new_unit.unit_type=="USERDEFINED":
+                            print("User defined unit detected")
+                            bpy.ops.bim.enable_editing_unit(unit=new_unit.ifc_definition_id)
+                            if parts[1]=="PRESSUREUNIT":
+                                bpy.context.scene.BIMUnitProperties.unit_attributes[0].string_value = "[-1, 1, -2, 0, 0, 0, 0]"
+                                bpy.context.scene.BIMUnitProperties.unit_attributes[1].enum_value=parts[1]
+                            bpy.ops.bim.edit_unit(unit=new_unit.ifc_definition_id)
+                        if len(parts)>3:
+                            bpy.ops.bim.enable_editing_unit(unit=new_unit.ifc_definition_id)
+                            bpy.context.scene.BIMUnitProperties.unit_attributes[1].enum_value=parts[3]
+                            bpy.ops.bim.edit_unit(unit=new_unit.ifc_definition_id)
+
+
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Error in setting IFC units: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
 
 def register():
     bpy.utils.register_class(MakeMeshesDataUniques_Runscript)
@@ -662,6 +745,7 @@ def register():
     bpy.utils.register_class(AutoGroupDatabase_Runscript)
     bpy.utils.register_class(DatabaseSimplify_Runscript)
     bpy.utils.register_class(ConvertMeshesInIFC_Runscript)
+    bpy.utils.register_class(IfcUnitsSet_RunScript)
 
 def unregister():
     bpy.utils.unregister_class(MakeMeshesDataUniques_Runscript)
@@ -682,3 +766,4 @@ def unregister():
     bpy.utils.unregister_class(AutoGroupDatabase_Runscript)
     bpy.utils.unregister_class(DatabaseSimplify_Runscript)
     bpy.utils.unregister_class(ConvertMeshesInIFC_Runscript)
+    bpy.utils.unregister_class(IfcUnitsSet_RunScript)

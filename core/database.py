@@ -192,15 +192,6 @@ def create_or_find_ods(obj, database_path):
                             row.addElement(cell)
                     table.addElement(row)
                 doc.save(to_be_completed_file_path)
-#                with open(to_be_completed_file_path, 'w', newline='', encoding='utf-8') as file:
-#                    writer = csv.writer(file, delimiter=';')
-#                    all_rows = old_rows + rows
-#                    # Header
-#                    writer.writerow(
-#                        ["Element Name","Product in DB","LOD Preset","To be deleted","MID: To be simplified","IfcClass","PredefinedType","ObjectType","Pset_NameXX/Prop_NameYY","Pset_NameXX/Prop_NameYY"]
-#                    )
-#                    writer.writerows(all_rows)
-        # If the completed CSV does not exist, create a new "to be completed" CSV    
         else:
             if not os.path.exists(to_be_completed_file_path):
                 doc = OpenDocumentSpreadsheet()
@@ -324,8 +315,6 @@ def select_hierarchy(obj):
 
 def simplify_geometries_csv(obj,database_path):
     completed_folder_path = os.path.join(database_path, "Completed")
-    # Replace all not allowed characters in object name
-    obj.name = obj.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
     # Select only the base name without the progression number that Blender/CATIA adds automatically
     parts = obj.name.split(".")
     file_name = ".".join(parts[:-1]) if len(parts) > 1 else obj.name
@@ -347,7 +336,6 @@ def simplify_geometries_csv(obj,database_path):
         object_to_iterate=[] # List of objects that are nodes in the database, for which we have to reiterate the simplification
 
         for object in objects: # Between the selected objects, find the ones that are in the database and append them to the list
-            object.name = object.name.replace("/", "_").replace("\\", "_").replace(":", "_").replace("<", "_").replace(">", "_")
             parts = object.name.split(".")
             file_name = ".".join(parts[:-1]) if len(parts) > 1 else object.name
             for element_name in element_names:
@@ -474,8 +462,6 @@ def simplify_geometries_csv(obj,database_path):
                         new_obj= bpy.data.objects.new(joined_obj.name,joined_obj.data.copy())
                         for collection in obj.users_collection:
                             collection.objects.link(new_obj)
-                        
-
                         # Reassign the properties
                         bpy.data.objects.remove(joined_obj, do_unlink=True)
                         bpy.data.objects.remove(obj, do_unlink=True)
@@ -588,6 +574,7 @@ def addIfcElementAssembly(obj,database_path,father=None,predefined_type="NOTDEFI
                 child_name=".".join(child_parts[:-1]) if len(child_parts) > 1 else child.name
                 for idx, name in element_names.items():
                     if child_name == name:
+                        print(f"        Child to convert: {child.name}")
                         local_predefined = "NOTDEFINED"
                         local_objecttype = None
                         local_psets = None

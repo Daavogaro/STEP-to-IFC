@@ -34,13 +34,52 @@ class MyProperties(bpy.types.PropertyGroup):
         ],
         default='MEDIUM'
     )
-
     database_path: bpy.props.StringProperty(
         default="C:\\Users\\avogar_d\\Desktop\\STEP-to-IFC_v2\\Girder\\Database",
         subtype='DIR_PATH',
         description="Path to the database folder containing the CSV files",
     )
     
+
+class IfcUnitsProperties(bpy.types.PropertyGroup):
+    pressure_units:bpy.props.EnumProperty(
+        name="Pressure Units",
+        description="Select the units for the PRESSUREUNIT",
+        items=[
+            ('NONE', "None", "No pressure measure will be applied"),
+            ('SI_PRESSUREUNIT_PASCAL', "Pascal [Pa]", "Pressure measure in Pascals"),
+            ('SI_PRESSUREUNIT_PASCAL_KILO', "KiloPascal [kPa]", "Pressure measure in KiloPascals"),
+            ('SI_PRESSUREUNIT_PASCAL_MEGA', "MegaPascal [MPa]", "Pressure measure in MegaPascals"),
+            ('CB_PRESSUREUNIT_bar', "Bar [bar]", "Pressure measure in Bars"),
+        ],
+        default='NONE'
+    )
+    time_units:bpy.props.EnumProperty(
+        name="Time Units",
+        description="Select the units for the TIMEUNIT",
+        items=[
+            ('NONE', "None", "No time measure will be applied"),
+            ('SI_TIMEUNIT_SECOND', "Seconds [s]", "Time measure in Seconds"),
+            ('CB_TIMEUNIT_minute', "Minutes [min]", "Time measure in Minutes"),
+            ('CB_TIMEUNIT_hour', "Hours [h]", "Time measure in Hours"),
+            ('CB_TIMEUNIT_day', "Days [d]", "Time measure in Days"),
+        ],
+        default='NONE'
+    )
+    temperature_units:bpy.props.EnumProperty(
+        name="Temperature Units",
+        description="Select the units for the TEMPERATUREUNIT",
+        items=[
+            ('NONE', "None", "No temperature measure will be applied"),
+            ('SI_THERMODYNAMICTEMPERATUREUNIT_KELVIN', "Kelvin [K]", "Temperature measure in Kelvin"),
+            ('CBO_THERMODYNAMICTEMPERATUREUNIT_farenheit', "Farenheit [°F]", "Temperature measure in Farenheit"),
+            ('CBO_THERMODYNAMICTEMPERATUREUNIT_celsius', "Celsius [°C]", "Temperature measure in Celsius"),
+
+        ],
+        default='NONE'
+    )
+
+
 class CustomPanel_ModelingSettings(bpy.types.Panel):
     bl_label = "Modeling Settings" # Title of the panel
     bl_idname = "Custom_panel_PT_ModelingSettings" # ID of the panel
@@ -249,17 +288,45 @@ class Panel_SimplifyAndConvert(bpy.types.Panel):
         else:
             layout.label(text="No object selected")
 
+class Panel_Units(bpy.types.Panel):
+    bl_label = "Select units of your model"
+    bl_idname = "CustomPanel_PT_Units"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "Units" 
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object # With this we can ensure that the layout (button, properties, etc...) that we want to add are shown only when an object is selected
+        if obj:
+            row1 = layout.row(align=True)
+            row1.label(text="Pressure Units")
+            row1.prop(obj.ifc_units_properties, "pressure_units", text="")
+            row2 = layout.row(align=True)
+            row2.label(text="Time Units")
+            row2.prop(obj.ifc_units_properties, "time_units", text="")
+            row3 = layout.row(align=True)
+            row3.label(text="Temperature Units")
+            row3.prop(obj.ifc_units_properties, "temperature_units", text="")
+
+            row = layout.row(align=True)
+            row.operator("ifc.unitsset", text="Set IFC Units", icon="CHECKMARK")
+        else:
+            layout.label(text="No object selected")
+
 # This function is to register classes in Blender. We make Blender know that this class esist and it's necessary to show them
 def register():
     bpy.utils.register_class(MyProperties)
+    bpy.utils.register_class(IfcUnitsProperties)
     bpy.types.Object.my_properties = bpy.props.PointerProperty(type=MyProperties)
-    
+    bpy.types.Object.ifc_units_properties = bpy.props.PointerProperty(type=IfcUnitsProperties)
     bpy.utils.register_class(CustomPanel_ModelingSettings)
     bpy.utils.register_class(CustomPanel_GeomAndTreeSempl)
     bpy.utils.register_class(CustomPanel_IFCAssgignment)
     bpy.utils.register_class(CustomPanel_NodesDefinition)
     bpy.utils.register_class(Panel_DatabaseOperations)
     bpy.utils.register_class(Panel_SimplifyAndConvert)
+    bpy.utils.register_class(Panel_Units)
 # This funciton is the contrary of the register functon. Is to tell Blender to close the classes that we have registered when we close the menu
 def unregister():
     bpy.utils.unregister_class(CustomPanel_ModelingSettings)
@@ -268,6 +335,9 @@ def unregister():
     bpy.utils.unregister_class(CustomPanel_NodesDefinition)
     bpy.utils.unregister_class(Panel_DatabaseOperations)
     bpy.utils.unregister_class(Panel_SimplifyAndConvert)
+    bpy.utils.unregister_class(Panel_Units)
     del bpy.types.Object.my_properties
+    del bpy.types.Object.ifc_units_properties
     bpy.utils.unregister_class(MyProperties)
+    bpy.utils.unregister_class(IfcUnitsProperties)
 
