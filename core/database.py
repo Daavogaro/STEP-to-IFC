@@ -640,6 +640,8 @@ def addIfcElement(obj,element_class,predefined_type="NOTDEFINED", object_type=No
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     # With this function if an object in the CSV has no Ifc Class value compiled, it won't be created and then it will be deleted.
+    if element_class == "nan":
+        element_class = "IfcBuildingElementProxy" # Default class
     if not element_class == None:
         print("     _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _")
         print(f"    A new {element_class} - {predefined_type} for object: {obj.name}")
