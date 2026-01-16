@@ -47,10 +47,10 @@ class IfcUnitsProperties(bpy.types.PropertyGroup):
         description="Select the units for the PRESSUREUNIT",
         items=[
             ('NONE', "None", "No pressure measure will be applied"),
-            ('SI_PRESSUREUNIT_PASCAL', "Pascal [Pa]", "Pressure measure in Pascals"),
-            ('SI_PRESSUREUNIT_PASCAL_KILO', "KiloPascal [kPa]", "Pressure measure in KiloPascals"),
-            ('SI_PRESSUREUNIT_PASCAL_MEGA', "MegaPascal [MPa]", "Pressure measure in MegaPascals"),
-            ('CB_PRESSUREUNIT_bar', "Bar [bar]", "Pressure measure in Bars"),
+            ('SI-PRESSUREUNIT-PASCAL', "Pascal [Pa]", "Pressure measure in Pascals"),
+            ('SI-PRESSUREUNIT-PASCAL-KILO', "KiloPascal [kPa]", "Pressure measure in KiloPascals"),
+            ('SI-PRESSUREUNIT-PASCAL-MEGA', "MegaPascal [MPa]", "Pressure measure in MegaPascals"),
+            ('CB-PRESSUREUNIT-bar', "Bar [bar]", "Pressure measure in Bars"),
         ],
         default='NONE'
     )
@@ -59,10 +59,10 @@ class IfcUnitsProperties(bpy.types.PropertyGroup):
         description="Select the units for the TIMEUNIT",
         items=[
             ('NONE', "None", "No time measure will be applied"),
-            ('SI_TIMEUNIT_SECOND', "Seconds [s]", "Time measure in Seconds"),
-            ('CB_TIMEUNIT_minute', "Minutes [min]", "Time measure in Minutes"),
-            ('CB_TIMEUNIT_hour', "Hours [h]", "Time measure in Hours"),
-            ('CB_TIMEUNIT_day', "Days [d]", "Time measure in Days"),
+            ('SI-TIMEUNIT-SECOND', "Seconds [s]", "Time measure in Seconds"),
+            ('CB-TIMEUNIT-minute', "Minutes [min]", "Time measure in Minutes"),
+            ('CB-TIMEUNIT-hour', "Hours [h]", "Time measure in Hours"),
+            ('CB-TIMEUNIT-day', "Days [d]", "Time measure in Days"),
         ],
         default='NONE'
     )
@@ -71,9 +71,9 @@ class IfcUnitsProperties(bpy.types.PropertyGroup):
         description="Select the units for the TEMPERATUREUNIT",
         items=[
             ('NONE', "None", "No temperature measure will be applied"),
-            ('SI_THERMODYNAMICTEMPERATUREUNIT_KELVIN', "Kelvin [K]", "Temperature measure in Kelvin"),
-            ('CBO_THERMODYNAMICTEMPERATUREUNIT_farenheit', "Farenheit [°F]", "Temperature measure in Farenheit"),
-            ('CBO_THERMODYNAMICTEMPERATUREUNIT_celsius', "Celsius [°C]", "Temperature measure in Celsius"),
+            ('SI-THERMODYNAMICTEMPERATUREUNIT-KELVIN', "Kelvin [K]", "Temperature measure in Kelvin"),
+            ('CBO-THERMODYNAMICTEMPERATUREUNIT-farenheit', "Farenheit [°F]", "Temperature measure in Farenheit"),
+            ('SI-THERMODYNAMICTEMPERATUREUNIT-DEGREE_CELSIUS', "Celsius [°C]", "Temperature measure in Celsius"),
 
         ],
         default='NONE'
@@ -141,7 +141,7 @@ class CustomPanel_GeomAndTreeSempl(bpy.types.Panel):
             col_left = row2.column()
             row_left = col_left.row(align=True)
             row_left_split = row_left.split(factor=0.60)
-            row_left_split.label(text="Delete object smaller than:")
+            row_left_split.label(text="Delete parts smaller than:")
             row_left_split.prop(obj.my_properties, "my_float", text="[m]")  # Add a float operator called "my_float" and contanined in the registered class "my_properties"
             row2.operator("object.run_script", text="", icon="TRASH") # The operator has the bl_idname "object.run_script" and you can find it in the operators file
             row3 = layout.row(align=True)
@@ -221,7 +221,7 @@ class CustomPanel_NodesDefinition(bpy.types.Panel):
             row1.operator("meshesunique.run_script", text="", icon="MESH_DATA")
             # Select nodes and level of detail for IFC conversion
             row0 = layout.row(align=True)
-            row0.label(text="Select nodes for IFC conversion")
+            row0.label(text="Select fundamental nodes for IFC conversion")
             row1 = layout.row(align=True)
             row1.prop(obj.my_properties, "level_of_detail",text="")
             row1.operator("groupingproperties.assign", text="", icon="SELECT_EXTEND")
@@ -231,7 +231,7 @@ class CustomPanel_NodesDefinition(bpy.types.Panel):
             col_left = row2.column()
             row_left = col_left.row(align=True)
             row_left_split = row_left.split(factor=0.60)
-            row_left_split.label(text="Delete object smaller than:")
+            row_left_split.label(text="Delete parts smaller than:")
             row_left_split.prop(obj.my_properties, "my_float", text="[m]")  # Add a float operator called "my_float" and contanined in the registered class "my_properties"
             row2.operator("object.run_script", text="", icon="TRASH") # The operator has the bl_idname "object.run_script" and you can find it in the operators file
 
@@ -256,9 +256,9 @@ class Panel_DatabaseOperations(bpy.types.Panel):
             row2 = layout.row(align=True)
             row2.prop(obj.my_properties, "database_path",text="")
             row2.operator("groupingproperties.databasepath", text="", icon="MOD_MULTIRES")
-            row3 = layout.row(align=True)
-            row3.label(text="Nodes properties from DB")
-            row3.operator("database.autofill", text="", icon="INTERNET")
+            # row3 = layout.row(align=True)
+            # row3.label(text="Nodes properties from DB")
+            # row3.operator("database.autofill", text="", icon="INTERNET")
         else:
             layout.label(text="No object selected")
 
@@ -276,10 +276,10 @@ class Panel_SimplifyAndConvert(bpy.types.Panel):
         if obj:
             # Row for deleting objects based on the imported CSV
             row1 = layout.row(align=True)
-            row1.label(text="Simplify geometries")
+            row1.label(text="Simplify assembly")
             row1.operator("database.simplify", text="", icon="PRESET")
             row2 = layout.row(align=True)
-            row2.label(text="Join complanar faces")
+            row2.label(text="Compress meshes")
             row2.operator("joincomplanarfaces.run_script", text="", icon="MOD_TRIANGULATE")
             row3 = layout.row(align=True)
             row3.label(text="Convert meshes in IFC elements")

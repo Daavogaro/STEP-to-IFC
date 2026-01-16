@@ -667,7 +667,7 @@ class IfcUnitsSet_RunScript(bpy.types.Operator):
                 print("________________________________")
                 print(f"Setting IFC unit for: {measure}")
                 if measure and measure!="NONE":
-                    parts=measure.split("_")
+                    parts=measure.split("-")
                     measure_to_delete=[]
                     for unit in collection_units:
                         if unit.unit_type==parts[1]:
@@ -677,6 +677,20 @@ class IfcUnitsSet_RunScript(bpy.types.Operator):
                         bpy.ops.bim.remove_unit(unit=unit.ifc_definition_id)
                     if parts[0]=="SI":                             
                         bpy.ops.bim.add_si_unit(unit_type=parts[1])
+                        if parts[1]=="THERMODYNAMICTEMPERATUREUNIT":
+                            if parts[2]=="DEGREE_CELSIUS":
+                                collection_units=bpy.context.scene.BIMUnitProperties.units
+                                new_unit = None
+                                for unit in collection_units:
+                                    if unit.name=="KELVIN":
+                                        new_unit=unit
+                                if new_unit:
+                                    bpy.ops.bim.enable_editing_unit(unit=new_unit.ifc_definition_id)
+                                    if len(parts)>3:
+                                        bpy.context.scene.BIMUnitProperties.unit_attributes[1].enum_value=parts[3]
+                                    bpy.context.scene.BIMUnitProperties.unit_attributes[2].enum_value = parts[2]
+                                    bpy.ops.bim.edit_unit(unit=new_unit.ifc_definition_id)
+
 
                     elif parts[0]=="CB":
                         bpy.ops.bim.add_conversion_based_unit(name=parts[2])
@@ -692,7 +706,7 @@ class IfcUnitsSet_RunScript(bpy.types.Operator):
                             if parts[1]=="THERMODYNAMICTEMPERATUREUNIT":
                                 bpy.context.scene.BIMUnitProperties.unit_attributes[0].string_value = "[0, 0, 0, 0, 1, 0, 0]"
                                 bpy.context.scene.BIMUnitProperties.unit_attributes[1].enum_value=parts[1]
-                                bpy.context.scene.BIMUnitProperties.unit_attributes[2].string_value = parts[2]
+                                bpy.context.scene.BIMUnitProperties.unit_attributes[2].enum_value = parts[2]
                                 if parts[2]=="celsius":
                                     bpy.context.scene.BIMUnitProperties.unit_attributes[3].float_value = "273.15"
                             bpy.ops.bim.edit_unit(unit=new_unit.ifc_definition_id)

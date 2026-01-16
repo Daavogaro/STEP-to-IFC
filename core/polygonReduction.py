@@ -15,9 +15,10 @@ def reduce_mesh(obj):
         bpy.ops.mesh.delete_loose()
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.face_make_planar()
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.dissolve_limited()   
-        bpy.ops.mesh.dissolve_limited(angle_limit=0.261799)
+        # bpy.ops.mesh.select_all(action='SELECT')
+        # bpy.ops.mesh.dissolve_limited()   
+        # bpy.ops.mesh.dissolve_limited(angle_limit=0.261799)
+        # bpy.ops.mesh.dissolve_limited(angle_limit=0.04)
         bpy.ops.object.editmode_toggle()
         bpy.ops.object.select_all(action='DESELECT')
 
